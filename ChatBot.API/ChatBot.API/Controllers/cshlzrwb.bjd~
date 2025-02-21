@@ -45,60 +45,6 @@ public class BotController : ControllerBase
                 return Ok(); // Prevent Telegram from retrying
             }
 
-            // Xử lý CallbackQuery (khi người dùng nhấn vào nút inline)
-            if (update.CallbackQuery != null)
-            {
-                // Lấy thông tin từ CallbackQuery
-                var callbackQuery = update.CallbackQuery;
-                var callbackData = callbackQuery.Data; // Dữ liệu callback (ví dụ: "feedback", "my_profile", "point")
-                long callbackChatId = callbackQuery.Message.Chat.Id;
-
-                // Xử lý dựa trên callbackData
-                switch (callbackData)
-                {
-                    case "feedback":
-                        await _botClient.SendTextMessageAsync(
-                            chatId: callbackChatId,
-                            text: "Please enter your feedback using the /feedback command."
-                        );
-                        break;
-
-                    case "my_profile":
-                        await _botClient.SendTextMessageAsync(
-                            chatId: callbackChatId,
-                            text: "123"
-                        );
-                        break;
-
-                    case "point":
-                        await _botClient.SendTextMessageAsync(
-                            chatId: callbackChatId,
-                            text: "123"
-                        );
-                        break;
-
-                    default:
-                        await _botClient.SendTextMessageAsync(
-                            chatId: callbackChatId,
-                            text: "Invalid option selected."
-                        );
-                        break;
-                }
-
-                // Xác nhận rằng callback đã được xử lý
-                await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
-
-                return Ok();
-            }
-
-            // Xử lý tin nhắn thông thường
-            if (update.Message?.Text == null)
-            {
-                _logger.LogWarning("Message is null");
-                return Ok(); // Prevent Telegram from retrying
-            }
-
-
             var userMessage = update.Message.Text;
             long chatId = update.Message.Chat.Id;
 
@@ -111,36 +57,43 @@ public class BotController : ControllerBase
             }
             else if (userMessage == "/help")
             {
-                // Tạo bàn phím với 3 nút inline
-                var inlineKeyboard = new InlineKeyboardMarkup(new[]
+                // Hiển thị bàn phím với 3 nút
+                var replyKeyboard = new ReplyKeyboardMarkup(new[]
                 {
-                    new[] // Hàng 1
-                    {
-                        InlineKeyboardButton.WithCallbackData("Filters", "filters"), // Nút Suggested
-                        InlineKeyboardButton.WithCallbackData("Feedback", "feedback"), // Nút Feedback
-                    },
-                    new[] // Hàng 2
-                    {
-                        InlineKeyboardButton.WithCallbackData("My Profile", "my_profile"), // Nút My Profile
-                        InlineKeyboardButton.WithCallbackData("Point", "point"), // Nút Point
-                    }
-                    });
-                // Tạo nội dung tin nhắn với hướng dẫn và khung
-                string messageText = @"
-                    ⭐ **Please choose an option:** ⭐
-                    🔹 Feedback: Đóng góp ý kiến
-                    🔹 My Profile: Xem tài khoản
-                    🔹 Point: Xem điểm thưởng
-                    🔹 Suggested questions: Gợi ý câu hỏi
-                    ";
-                // Gửi bàn phím đến người dùng
+                new[] { new KeyboardButton("Feedback") },
+                new[] { new KeyboardButton("My Profile") },
+                new[] { new KeyboardButton("Point") }
+            })
+                {
+                    ResizeKeyboard = true // Tự động điều chỉnh kích thước bàn phím
+                };
+
                 await _botClient.SendTextMessageAsync(
                     chatId: chatId,
-                    text: messageText,
-                    replyMarkup: inlineKeyboard
+                    text: "Please choose an option:",
+                    replyMarkup: replyKeyboard
                 );
-
-                _logger.LogInformation("Sent inline keyboard to chat ID: {ChatId}", chatId);
+            }
+            else if (userMessage == "Feedback")
+            {
+                await _botClient.SendTextMessageAsync(
+                    chatId: chatId,
+                    text: "Please enter your feedback using the /feedback command."
+                );
+            }
+            else if (userMessage == "My Profile")
+            {
+                await _botClient.SendTextMessageAsync(
+                    chatId: chatId,
+                    text: "123"
+                );
+            }
+            else if (userMessage == "Point")
+            {
+                await _botClient.SendTextMessageAsync(
+                    chatId: chatId,
+                    text: "123"
+                );
             }
             else if (userMessage.StartsWith("/feedback"))
             {
@@ -148,7 +101,8 @@ public class BotController : ControllerBase
                 string feedbackMessage = userMessage.Replace("/feedback", "").Trim();
                 await _botClient.SendTextMessageAsync(
                     chatId: chatId,
-                    text: "Thank you for your comment!"
+                    text: "Thank you for your comment!",
+                    replyMarkup: new ReplyKeyboardRemove() // Ẩn bàn phím
                 );
             }
             else
