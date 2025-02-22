@@ -6,11 +6,11 @@ using Microsoft.AspNetCore.Mvc;
 namespace ChatBot.API.Controllers;
 [Route("api/[controller]")]
 [ApiController]
-public class RoleController : ControllerBase
+public class FeedbackController : ControllerBase
 {
     private readonly IUnitOfWork unitOfWork;
 
-    public RoleController(IUnitOfWork _unitOfWork)
+    public FeedbackController(IUnitOfWork _unitOfWork)
     {
         unitOfWork = _unitOfWork;
     }
@@ -18,21 +18,21 @@ public class RoleController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var _data = await unitOfWork.roleReponsitory.GetAllAsync();
+        var _data = await unitOfWork.feedbackReponsitory.GetAllAsync();
         return Ok(_data);
     }
 
     [HttpGet("getById/{id}")]
     public async Task<IActionResult> GetById(int id)
     {
-        var _data = await unitOfWork.roleReponsitory.GetAsync(id);
+        var _data = await unitOfWork.feedbackReponsitory.GetAsync(id);
         return Ok(_data);
     }
 
     [HttpPost]
-    public async Task<IActionResult> Created(BboRole bboRole)
+    public async Task<IActionResult> Created(BboFeedback bboFeedback)
     {
-        var _data = await unitOfWork.roleReponsitory.AddEntity(bboRole);
+        var _data = await unitOfWork.feedbackReponsitory.AddEntity(bboFeedback);
         await unitOfWork.CompleteAsync();
         return Ok(_data);
     }

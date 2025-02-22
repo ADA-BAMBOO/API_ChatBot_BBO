@@ -8,6 +8,7 @@ public class UnitOfWorkReponsitory : IUnitOfWork
     public IUserReponsitory userReponsitory { get; private set; }
     public IRoleReponsitory roleReponsitory { get; private set; }
     public IChatHistoryReponsitory chatHistoryReponsitory { get; private set; }
+    public IFeedbackReponsitory feedbackReponsitory { get; private set; }
 
     private readonly YourDbContext yourDbContext;
 
@@ -16,6 +17,7 @@ public class UnitOfWorkReponsitory : IUnitOfWork
         this.yourDbContext = _yourDbContext;
         userReponsitory = new UserReponsitory(yourDbContext);
         roleReponsitory = new RoleReponsitory(yourDbContext);
+        feedbackReponsitory = new FeedbackReponsitory(yourDbContext);
         chatHistoryReponsitory = new ChatHistoryReponsitory(yourDbContext);
 
     }
