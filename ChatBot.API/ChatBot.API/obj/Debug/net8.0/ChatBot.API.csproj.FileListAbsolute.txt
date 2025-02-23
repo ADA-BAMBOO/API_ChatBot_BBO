@@ -144,3 +144,4 @@ D:\NguyenHoangKhai_Learn\API_ChatBot_BBO\ChatBot.API\ChatBot.API\obj\Debug\net8.
 D:\NguyenHoangKhai_Learn\API_ChatBot_BBO\ChatBot.API\ChatBot.API\obj\Debug\net8.0\ChatBot.API.pdb
 D:\NguyenHoangKhai_Learn\API_ChatBot_BBO\ChatBot.API\ChatBot.API\obj\Debug\net8.0\ChatBot.API.genruntimeconfig.cache
 D:\NguyenHoangKhai_Learn\API_ChatBot_BBO\ChatBot.API\ChatBot.API\obj\Debug\net8.0\ref\ChatBot.API.dll
+D:\NguyenHoangKhai_Learn\API_ChatBot_BBO\ChatBot.API\ChatBot.API\bin\Debug\net8.0\TelegramBotBase.dll

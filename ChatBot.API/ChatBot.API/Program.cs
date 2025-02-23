@@ -5,9 +5,10 @@ using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using Telegram.Bot;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// ?? C?u hình JSON cho controllers
 builder.Services
     .AddControllers()
     .AddNewtonsoftJson(options => {
@@ -17,19 +18,24 @@ builder.Services
     });
 
 builder.Services.AddControllers();
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// ?? C?u hình database (PostgreSQL ho?c khác)
 builder.Services.AddDbContext<YourDbContext>(
     options => options.UseNpgsql(builder.Configuration.GetConnectionString("dbConnection"))
     );
+
+// ?? C?u hình UnitOfWork cho Repository Pattern
 builder.Services.AddScoped<IUnitOfWork, UnitOfWorkReponsitory>();
 
-// Add this line to register TelegramBotClient
+// ?? ??ng ký TelegramBotClient t? appsettings.json
 builder.Services.AddSingleton<ITelegramBotClient>(sp =>
     new TelegramBotClient(builder.Configuration["TelegramBot:Token"]));
 
-// Add logging
+// ?? Thêm logging
 builder.Logging.AddConsole();
 
 var app = builder.Build();

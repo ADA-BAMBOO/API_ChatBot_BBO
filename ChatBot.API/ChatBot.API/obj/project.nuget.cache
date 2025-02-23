@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "KHzkG5MuBiU=",
+  "dgSpecHash": "Bq08CXshgZY=",
   "success": true,
   "projectFilePath": "D:\\NguyenHoangKhai_Learn\\API_ChatBot_BBO\\ChatBot.API\\ChatBot.API\\ChatBot.API.csproj",
   "expectedPackageFiles": [
@@ -31,14 +31,12 @@
     "C:\\Users\\ACER\\.nuget\\packages\\microsoft.extensions.caching.abstractions\\9.0.2\\microsoft.extensions.caching.abstractions.9.0.2.nupkg.sha512",
     "C:\\Users\\ACER\\.nuget\\packages\\microsoft.extensions.caching.memory\\9.0.2\\microsoft.extensions.caching.memory.9.0.2.nupkg.sha512",
     "C:\\Users\\ACER\\.nuget\\packages\\microsoft.extensions.configuration.abstractions\\9.0.2\\microsoft.extensions.configuration.abstractions.9.0.2.nupkg.sha512",
-    "C:\\Users\\ACER\\.nuget\\packages\\microsoft.extensions.configuration.binder\\8.0.0\\microsoft.extensions.configuration.binder.8.0.0.nupkg.sha512",
     "C:\\Users\\ACER\\.nuget\\packages\\microsoft.extensions.dependencyinjection\\9.0.2\\microsoft.extensions.dependencyinjection.9.0.2.nupkg.sha512",
     "C:\\Users\\ACER\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\9.0.2\\microsoft.extensions.dependencyinjection.abstractions.9.0.2.nupkg.sha512",
     "C:\\Users\\ACER\\.nuget\\packages\\microsoft.extensions.dependencymodel\\9.0.2\\microsoft.extensions.dependencymodel.9.0.2.nupkg.sha512",
     "C:\\Users\\ACER\\.nuget\\packages\\microsoft.extensions.logging\\9.0.2\\microsoft.extensions.logging.9.0.2.nupkg.sha512",
     "C:\\Users\\ACER\\.nuget\\packages\\microsoft.extensions.logging.abstractions\\9.0.2\\microsoft.extensions.logging.abstractions.9.0.2.nupkg.sha512",
     "C:\\Users\\ACER\\.nuget\\packages\\microsoft.extensions.options\\9.0.2\\microsoft.extensions.options.9.0.2.nupkg.sha512",
-    "C:\\Users\\ACER\\.nuget\\packages\\microsoft.extensions.options.configurationextensions\\8.0.0\\microsoft.extensions.options.configurationextensions.8.0.0.nupkg.sha512",
     "C:\\Users\\ACER\\.nuget\\packages\\microsoft.extensions.primitives\\9.0.2\\microsoft.extensions.primitives.9.0.2.nupkg.sha512",
     "C:\\Users\\ACER\\.nuget\\packages\\microsoft.netcore.platforms\\1.1.0\\microsoft.netcore.platforms.1.1.0.nupkg.sha512",
     "C:\\Users\\ACER\\.nuget\\packages\\microsoft.netcore.targets\\1.1.0\\microsoft.netcore.targets.1.1.0.nupkg.sha512",
@@ -139,8 +137,9 @@
     "C:\\Users\\ACER\\.nuget\\packages\\system.threading.timer\\4.3.0\\system.threading.timer.4.3.0.nupkg.sha512",
     "C:\\Users\\ACER\\.nuget\\packages\\system.xml.readerwriter\\4.3.0\\system.xml.readerwriter.4.3.0.nupkg.sha512",
     "C:\\Users\\ACER\\.nuget\\packages\\system.xml.xdocument\\4.3.0\\system.xml.xdocument.4.3.0.nupkg.sha512",
-    "C:\\Users\\ACER\\.nuget\\packages\\telegram.bot\\22.4.3\\telegram.bot.22.4.3.nupkg.sha512",
-    "C:\\Users\\ACER\\.nuget\\packages\\telegram.botapi\\8.3.0\\telegram.botapi.8.3.0.nupkg.sha512"
+    "C:\\Users\\ACER\\.nuget\\packages\\telegram.bot\\19.0.0\\telegram.bot.19.0.0.nupkg.sha512",
+    "C:\\Users\\ACER\\.nuget\\packages\\telegram.botapi\\8.3.0\\telegram.botapi.8.3.0.nupkg.sha512",
+    "C:\\Users\\ACER\\.nuget\\packages\\telegrambotbase\\6.6.1\\telegrambotbase.6.6.1.nupkg.sha512"
   ],
   "logs": []
 }

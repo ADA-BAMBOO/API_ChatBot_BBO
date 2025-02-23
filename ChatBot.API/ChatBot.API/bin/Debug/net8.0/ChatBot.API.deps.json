@@ -17,8 +17,9 @@
           "Npgsql.EntityFrameworkCore.PostgreSQL": "9.0.3",
           "Npgsql.EntityFrameworkCore.PostgreSQL.Design": "1.1.0",
           "Swashbuckle.AspNetCore": "6.4.0",
-          "Telegram.Bot": "22.4.3",
-          "Telegram.BotAPI": "8.3.0"
+          "Telegram.Bot": "19.0.0",
+          "Telegram.BotAPI": "8.3.0",
+          "TelegramBotBase": "6.6.1"
         },
         "runtime": {
           "ChatBot.API.dll": {}
@@ -505,11 +506,6 @@
           }
         }
       },
-      "Microsoft.Extensions.Configuration.Binder/8.0.0": {
-        "dependencies": {
-          "Microsoft.Extensions.Configuration.Abstractions": "9.0.2"
-        }
-      },
       "Microsoft.Extensions.DependencyInjection/9.0.2": {
         "dependencies": {
           "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.2"
@@ -576,15 +572,6 @@
             "assemblyVersion": "9.0.0.0",
             "fileVersion": "9.0.225.6610"
           }
-        }
-      },
-      "Microsoft.Extensions.Options.ConfigurationExtensions/8.0.0": {
-        "dependencies": {
-          "Microsoft.Extensions.Configuration.Abstractions": "9.0.2",
-          "Microsoft.Extensions.Configuration.Binder": "8.0.0",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.2",
-          "Microsoft.Extensions.Options": "9.0.2",
-          "Microsoft.Extensions.Primitives": "9.0.2"
         }
       },
       "Microsoft.Extensions.Primitives/9.0.2": {
@@ -1490,15 +1477,14 @@
           "System.Xml.ReaderWriter": "4.3.0"
         }
       },
-      "Telegram.Bot/22.4.3": {
+      "Telegram.Bot/19.0.0": {
         "dependencies": {
-          "Microsoft.Extensions.Options.ConfigurationExtensions": "8.0.0",
-          "System.Text.Json": "9.0.2"
+          "Newtonsoft.Json": "13.0.3"
         },
         "runtime": {
           "lib/net6.0/Telegram.Bot.dll": {
-            "assemblyVersion": "22.4.3.0",
-            "fileVersion": "22.4.3.0"
+            "assemblyVersion": "19.0.0.0",
+            "fileVersion": "19.0.0.0"
           }
         }
       },
@@ -1510,6 +1496,18 @@
           "lib/netstandard2.0/Telegram.BotAPI.dll": {
             "assemblyVersion": "8.3.0.0",
             "fileVersion": "8.3.0.0"
+          }
+        }
+      },
+      "TelegramBotBase/6.6.1": {
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.2",
+          "Telegram.Bot": "19.0.0"
+        },
+        "runtime": {
+          "lib/net8.0/TelegramBotBase.dll": {
+            "assemblyVersion": "6.0.0.0",
+            "fileVersion": "6.0.0.0"
           }
         }
       }
@@ -1710,13 +1708,6 @@
       "path": "microsoft.extensions.configuration.abstractions/9.0.2",
       "hashPath": "microsoft.extensions.configuration.abstractions.9.0.2.nupkg.sha512"
     },
-    "Microsoft.Extensions.Configuration.Binder/8.0.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-mBMoXLsr5s1y2zOHWmKsE9veDcx8h1x/c3rz4baEdQKTeDcmQAPNbB54Pi/lhFO3K431eEq6PFbMgLaa6PHFfA==",
-      "path": "microsoft.extensions.configuration.binder/8.0.0",
-      "hashPath": "microsoft.extensions.configuration.binder.8.0.0.nupkg.sha512"
-    },
     "Microsoft.Extensions.DependencyInjection/9.0.2": {
       "type": "package",
       "serviceable": true,
@@ -1758,13 +1749,6 @@
       "sha512": "sha512-zr98z+AN8+isdmDmQRuEJ/DAKZGUTHmdv3t0ZzjHvNqvA44nAgkXE9kYtfoN6581iALChhVaSw2Owt+Z2lVbkQ==",
       "path": "microsoft.extensions.options/9.0.2",
       "hashPath": "microsoft.extensions.options.9.0.2.nupkg.sha512"
-    },
-    "Microsoft.Extensions.Options.ConfigurationExtensions/8.0.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-0f4DMRqEd50zQh+UyJc+/HiBsZ3vhAQALgdkcQEalSH1L2isdC7Yj54M3cyo5e+BeO5fcBQ7Dxly8XiBBcvRgw==",
-      "path": "microsoft.extensions.options.configurationextensions/8.0.0",
-      "hashPath": "microsoft.extensions.options.configurationextensions.8.0.0.nupkg.sha512"
     },
     "Microsoft.Extensions.Primitives/9.0.2": {
       "type": "package",
@@ -2466,12 +2450,12 @@
       "path": "system.xml.xdocument/4.3.0",
       "hashPath": "system.xml.xdocument.4.3.0.nupkg.sha512"
     },
-    "Telegram.Bot/22.4.3": {
+    "Telegram.Bot/19.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-WiIS43Hh3Uk+74Oenhe5kaU+Td2hgiYYUo3Mo+ieqCaNrLJCELwgMBOcYGgRt4BZ0V2Mhy9LoJ5gTzc6BryqGg==",
-      "path": "telegram.bot/22.4.3",
-      "hashPath": "telegram.bot.22.4.3.nupkg.sha512"
+      "sha512": "sha512-Q16IOitgjGoaJOuqgKQy0FeF+hr/ncmlX2esrhCC7aiyhSX7roYEriWaGAHkQZR8QzbImjFfl4eQh2IxcnOrPg==",
+      "path": "telegram.bot/19.0.0",
+      "hashPath": "telegram.bot.19.0.0.nupkg.sha512"
     },
     "Telegram.BotAPI/8.3.0": {
       "type": "package",
@@ -2479,6 +2463,13 @@
       "sha512": "sha512-OzOjP01Jx9JLTmilNkpYjuKF63YGPr7Ym2gu8/ne9sas57qyBUruskjfENpH4fHUZUns4yrdJh37NrH1MhT0nw==",
       "path": "telegram.botapi/8.3.0",
       "hashPath": "telegram.botapi.8.3.0.nupkg.sha512"
+    },
+    "TelegramBotBase/6.6.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-uIVTnu/sW6QqXxw6jN7FRGzTnMLdBHI4dXwKBk5zcfINUmRnlcw62/+4imx6S3IqaKqs+iXCKeEApMpATU8qyw==",
+      "path": "telegrambotbase/6.6.1",
+      "hashPath": "telegrambotbase.6.6.1.nupkg.sha512"
     }
   }
 }

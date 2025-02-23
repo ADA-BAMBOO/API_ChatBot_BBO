@@ -86,11 +86,15 @@
             },
             "Telegram.Bot": {
               "target": "Package",
-              "version": "[22.4.3, )"
+              "version": "[19.0.0, )"
             },
             "Telegram.BotAPI": {
               "target": "Package",
               "version": "[8.3.0, )"
+            },
+            "TelegramBotBase": {
+              "target": "Package",
+              "version": "[6.6.1, )"
             }
           },
           "imports": [

@@ -7,6 +7,9 @@ using Telegram.Bot.Types;
 using System.Text.Json;
 using System.Text;
 using Telegram.Bot.Types.ReplyMarkups;
+using TelegramBotBase;
+using TelegramBotBase.Args;
+
 
 namespace ChatBot.API.Controllers;
 [Route("api/[controller]")]
@@ -15,7 +18,6 @@ public class BotController : ControllerBase
 {
     private readonly TelegramBotClient _botClient;
     private readonly ILogger<BotController> _logger;
-    private static Dictionary<long, UserFeedbackState> _userFeedbackStates = new();
 
     public BotController(ILogger<BotController> logger)
     {
@@ -46,13 +48,6 @@ public class BotController : ControllerBase
                 return Ok(); // Prevent Telegram from retrying
             }
 
-            // Xử lý CallbackQuery (khi người dùng nhấn vào nút inline)
-            if (update.CallbackQuery != null)
-            {
-                _logger.LogInformation("Received CallbackQuery: {CallbackQueryData}", update.CallbackQuery.Data);
-                await HandleCallbackQuery(update.CallbackQuery);
-                return Ok();
-            }
 
             // Xử lý tin nhắn thông thường
             if (update.Message?.Text == null)
@@ -61,56 +56,60 @@ public class BotController : ControllerBase
                 return Ok(); // Prevent Telegram from retrying
             }
 
+
+
             var userMessage = update.Message.Text;
             long chatId = update.Message.Chat.Id;
 
+            if (update.CallbackQuery != null)
+            {
+                string callbackData = update.CallbackQuery.Data;
+                chatId = update.CallbackQuery.Message.Chat.Id;
+
+                _logger.LogInformation("🔹 Received CallbackQuery: {Data}", callbackData);
+
+                // Gửi phản hồi để Telegram biết đã nhận callback
+                await _botClient.AnswerCallbackQueryAsync(update.CallbackQuery.Id);
+
+                switch (callbackData)
+                {
+                    case "filters":
+                        await _botClient.SendTextMessageAsync(chatId, "🔍 Here are some suggested questions...");
+                        break;
+                    case "settings":
+                        await _botClient.SendTextMessageAsync(chatId, "⚙ Here are your account settings...");
+                        break;
+                    case "feedback":
+                        await _botClient.SendTextMessageAsync(chatId, "📝 Please provide your feedback...");
+                        break;
+                    case "point":
+                        await _botClient.SendTextMessageAsync(chatId, "🏆 Here is your achievement score...");
+                        break;
+                    default:
+                        await _botClient.SendTextMessageAsync(chatId, "❓ Unknown option selected.");
+                        break;
+                }
+
+                return Ok();
+            }
+
+
+
             if (userMessage == "/start")
             {
-                await _botClient.SendTextMessageAsync(
-                    chatId: chatId,
-                    text: $"Hello {update.Message.From.FirstName}, welcome to my bot!"
-                );
+                var inlineKeyboard = new InlineKeyboardMarkup(new[]
+         {
+            InlineKeyboardButton.WithCallbackData("Click me", "test")
+        });
+
+                await _botClient.SendTextMessageAsync(update.Message.Chat.Id, "Press the button:", replyMarkup: inlineKeyboard);
             }
             else if (userMessage == "/help")
             {
                 // Gọi method public riêng để xử lý lệnh /help
                 await HandleHelpCommand(chatId);
             }
-            else if (userMessage.StartsWith("/feedback"))
-            {
-                // Yêu cầu người dùng nhập nội dung phản hồi
-                await _botClient.SendTextMessageAsync(
-                    chatId: chatId,
-                    text: "Please enter your feedback:"
-                );
 
-                // Lưu trạng thái người dùng
-                _userFeedbackStates[chatId] = new UserFeedbackState();
-            }
-            else if (_userFeedbackStates.ContainsKey(chatId) && string.IsNullOrEmpty(_userFeedbackStates[chatId].FeedbackText))
-            {
-                // Lưu nội dung phản hồi
-                _userFeedbackStates[chatId].FeedbackText = userMessage;
-
-                // Hiển thị bàn phím inline để chọn đánh giá
-                var inlineKeyboard = new InlineKeyboardMarkup(new[]
-                {
-                    new[]
-                    {
-                        InlineKeyboardButton.WithCallbackData("1", "rating_1"),
-                        InlineKeyboardButton.WithCallbackData("2", "rating_2"),
-                        InlineKeyboardButton.WithCallbackData("3", "rating_3"),
-                        InlineKeyboardButton.WithCallbackData("4", "rating_4"),
-                        InlineKeyboardButton.WithCallbackData("5", "rating_5"),
-                    }
-                });
-
-                await _botClient.SendTextMessageAsync(
-                    chatId: chatId,
-                    text: "Please rate your experience (1-5):",
-                    replyMarkup: inlineKeyboard
-                );
-            }
             else
             {
                 // Gửi tin nhắn đến API của bạn
@@ -131,13 +130,12 @@ public class BotController : ControllerBase
         }
     }
 
-    // 🔹 Method xử lý lệnh /help
+    #region Method xử lý lệnh /help
     private async Task HandleHelpCommand(long chatId)
     {
-        // Tạo bàn phím với 3 nút inline
         var inlineKeyboard = new InlineKeyboardMarkup(new[]
         {
-            new[] // Hàng 1
+         new[] // Hàng 1
             {
                 InlineKeyboardButton.WithCallbackData("Filter", "filters"), // Nút Suggested
                 InlineKeyboardButton.WithCallbackData("Feedback", "feedback"), // Nút Feedback
@@ -149,11 +147,12 @@ public class BotController : ControllerBase
             }
         });
 
+
         // Tạo nội dung tin nhắn với hướng dẫn và khung
         string messageText = @"
 🌟 Please choose an option: 
 ──────────────────────────────
-👤 - My Profile: Account settings
+👤 - Settings: Account settings
 💡 - Filter: Suggested questions
 📝 - Feedback: Give feedback
 🎯 - Point: View Achievements
@@ -169,64 +168,9 @@ public class BotController : ControllerBase
         _logger.LogInformation("Sent inline keyboard to chat ID: {ChatId}", chatId);
     }
 
+    #endregion
 
-    // 🔹 Method xử lý CallbackQuery
-
-    private async Task HandleCallbackQuery(CallbackQuery callbackQuery)
-    {
-        var callbackData = callbackQuery.Data;
-        long callbackChatId = callbackQuery.Message.Chat.Id;
-
-        _logger.LogInformation("Handling CallbackQuery: {CallbackData}", callbackData);
-
-        if (callbackData.StartsWith("rating_"))
-        {
-            // Lưu đánh giá
-            int rating = int.Parse(callbackData.Replace("rating_", ""));
-            _userFeedbackStates[callbackChatId].Rating = rating;
-
-            // Hiển thị nút Submit
-            var inlineKeyboard = new InlineKeyboardMarkup(new[]
-            {
-                new[]
-                {
-                    InlineKeyboardButton.WithCallbackData("Submit", "submit_feedback"),
-                }
-            });
-
-            await _botClient.SendTextMessageAsync(
-                chatId: callbackChatId,
-                text: $"You selected rating: {rating}. Press Submit to confirm.",
-                replyMarkup: inlineKeyboard
-            );
-        }
-        else if (callbackData == "submit_feedback")
-        {
-            // Xử lý khi người dùng nhấn Submit
-            var feedbackState = _userFeedbackStates[callbackChatId];
-            string feedbackText = feedbackState.FeedbackText;
-            int rating = feedbackState.Rating;
-
-            // Gửi phản hồi hoặc lưu vào cơ sở dữ liệu
-            await _botClient.SendTextMessageAsync(
-                chatId: callbackChatId,
-                text: $"Thank you for your feedback!\nFeedback: {feedbackText}\nRating: {rating}"
-            );
-
-            // Xóa trạng thái người dùng
-            _userFeedbackStates.Remove(callbackChatId);
-        }
-
-        // Xác nhận rằng callback đã được xử lý
-        await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
-    }
-    public class UserFeedbackState
-    {
-        public string FeedbackText { get; set; }
-        public int Rating { get; set; }
-    }
-
-    // 🔹 Hàm gọi API đến mô hình AI
+    #region Hàm gọi API đến mô hình AI
     private async Task<string> GetResponseFromAI(long chatId, string message)
     {
         using var httpClient = new HttpClient();
@@ -254,4 +198,5 @@ public class BotController : ControllerBase
             return "Xin lỗi, tôi không thể xử lý yêu cầu của bạn ngay lúc này.";
         }
     }
+    #endregion
 }
