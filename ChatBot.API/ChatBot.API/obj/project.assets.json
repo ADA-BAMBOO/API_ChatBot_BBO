@@ -2544,19 +2544,19 @@
           }
         }
       },
-      "TelegramBotBase/6.6.1": {
+      "TelegramBotBase/6.0.0": {
         "type": "package",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.0",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "6.0.0",
           "Telegram.Bot": "19.0.0"
         },
         "compile": {
-          "lib/net8.0/TelegramBotBase.dll": {
+          "lib/net6.0/TelegramBotBase.dll": {
             "related": ".xml"
           }
         },
         "runtime": {
-          "lib/net8.0/TelegramBotBase.dll": {
+          "lib/net6.0/TelegramBotBase.dll": {
             "related": ".xml"
           }
         }
@@ -8388,24 +8388,20 @@
         "telegram.botapi.nuspec"
       ]
     },
-    "TelegramBotBase/6.6.1": {
-      "sha512": "uIVTnu/sW6QqXxw6jN7FRGzTnMLdBHI4dXwKBk5zcfINUmRnlcw62/+4imx6S3IqaKqs+iXCKeEApMpATU8qyw==",
+    "TelegramBotBase/6.0.0": {
+      "sha512": "l2psC3Ag6tBmpEr7888vTkZMvLOTo8SGShDwHLkxGwPYnSEyJXPepwamAHUhPahxWyfF1PkkOnLksegAAsI8nA==",
       "type": "package",
-      "path": "telegrambotbase/6.6.1",
+      "path": "telegrambotbase/6.0.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "lib/net6.0/TelegramBotBase.dll",
         "lib/net6.0/TelegramBotBase.xml",
-        "lib/net7.0/TelegramBotBase.dll",
-        "lib/net7.0/TelegramBotBase.xml",
-        "lib/net8.0/TelegramBotBase.dll",
-        "lib/net8.0/TelegramBotBase.xml",
-        "lib/net9.0/TelegramBotBase.dll",
-        "lib/net9.0/TelegramBotBase.xml",
         "lib/netcoreapp3.1/TelegramBotBase.dll",
         "lib/netcoreapp3.1/TelegramBotBase.xml",
-        "telegrambotbase.6.6.1.nupkg.sha512",
+        "lib/netstandard2.0/TelegramBotBase.dll",
+        "lib/netstandard2.0/TelegramBotBase.xml",
+        "telegrambotbase.6.0.0.nupkg.sha512",
         "telegrambotbase.nuspec"
       ]
     }
@@ -8423,7 +8419,7 @@
       "Swashbuckle.AspNetCore >= 6.4.0",
       "Telegram.Bot >= 19.0.0",
       "Telegram.BotAPI >= 8.3.0",
-      "TelegramBotBase >= 6.6.1"
+      "TelegramBotBase >= 6.0.0"
     ]
   },
   "packageFolders": {
@@ -8519,7 +8515,7 @@
           },
           "TelegramBotBase": {
             "target": "Package",
-            "version": "[6.6.1, )"
+            "version": "[6.0.0, )"
           }
         },
         "imports": [

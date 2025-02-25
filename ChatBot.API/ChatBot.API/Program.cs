@@ -1,6 +1,7 @@
-using ChatBot.API.Interface;
+Ôªøusing ChatBot.API.Interface;
 using ChatBot.API.Models;
 using ChatBot.API.Reponsitory;
+using ChatBot.API.Handle;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using Telegram.Bot;
@@ -8,7 +9,7 @@ using Telegram.Bot;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ?? C?u hÏnh JSON cho controllers
+// ?? C?u h√¨nh JSON cho controllers
 builder.Services
     .AddControllers()
     .AddNewtonsoftJson(options => {
@@ -23,20 +24,24 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ?? C?u hÏnh database (PostgreSQL ho?c kh·c)
+// ?? C·∫•u h√¨nh database (PostgreSQL ho?c kh√°c)
 builder.Services.AddDbContext<YourDbContext>(
     options => options.UseNpgsql(builder.Configuration.GetConnectionString("dbConnection"))
     );
 
-// ?? C?u hÏnh UnitOfWork cho Repository Pattern
+// C·∫•u h√¨nh UnitOfWork cho Repository Pattern
 builder.Services.AddScoped<IUnitOfWork, UnitOfWorkReponsitory>();
 
-// ?? ??ng k˝ TelegramBotClient t? appsettings.json
+// ƒêƒÉnng k√Ω TelegramBotClient t? appsettings.json
 builder.Services.AddSingleton<ITelegramBotClient>(sp =>
     new TelegramBotClient(builder.Configuration["TelegramBot:Token"]));
 
-// ?? ThÍm logging
+// Th√™m logging
 builder.Logging.AddConsole();
+
+
+// Add the bot as a hosted service
+builder.Services.AddHostedService<MyBot>();
 
 var app = builder.Build();
 

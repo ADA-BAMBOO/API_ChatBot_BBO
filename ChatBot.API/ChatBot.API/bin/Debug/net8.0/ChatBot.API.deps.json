@@ -19,7 +19,7 @@
           "Swashbuckle.AspNetCore": "6.4.0",
           "Telegram.Bot": "19.0.0",
           "Telegram.BotAPI": "8.3.0",
-          "TelegramBotBase": "6.6.1"
+          "TelegramBotBase": "6.0.0"
         },
         "runtime": {
           "ChatBot.API.dll": {}
@@ -1499,13 +1499,13 @@
           }
         }
       },
-      "TelegramBotBase/6.6.1": {
+      "TelegramBotBase/6.0.0": {
         "dependencies": {
           "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.2",
           "Telegram.Bot": "19.0.0"
         },
         "runtime": {
-          "lib/net8.0/TelegramBotBase.dll": {
+          "lib/net6.0/TelegramBotBase.dll": {
             "assemblyVersion": "6.0.0.0",
             "fileVersion": "6.0.0.0"
           }
@@ -2464,12 +2464,12 @@
       "path": "telegram.botapi/8.3.0",
       "hashPath": "telegram.botapi.8.3.0.nupkg.sha512"
     },
-    "TelegramBotBase/6.6.1": {
+    "TelegramBotBase/6.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-uIVTnu/sW6QqXxw6jN7FRGzTnMLdBHI4dXwKBk5zcfINUmRnlcw62/+4imx6S3IqaKqs+iXCKeEApMpATU8qyw==",
-      "path": "telegrambotbase/6.6.1",
-      "hashPath": "telegrambotbase.6.6.1.nupkg.sha512"
+      "sha512": "sha512-l2psC3Ag6tBmpEr7888vTkZMvLOTo8SGShDwHLkxGwPYnSEyJXPepwamAHUhPahxWyfF1PkkOnLksegAAsI8nA==",
+      "path": "telegrambotbase/6.0.0",
+      "hashPath": "telegrambotbase.6.0.0.nupkg.sha512"
     }
   }
 }

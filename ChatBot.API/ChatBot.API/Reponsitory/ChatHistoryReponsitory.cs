@@ -1,11 +1,14 @@
 ﻿using ChatBot.API.Interface;
 using ChatBot.API.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace ChatBot.API.Reponsitory;
 
 public class ChatHistoryReponsitory : GenericReponsitory<BboChathistory>, IChatHistoryReponsitory
 {
+
+
     public ChatHistoryReponsitory(YourDbContext _dbContext) : base(_dbContext)
     {
     }
@@ -24,13 +27,21 @@ public class ChatHistoryReponsitory : GenericReponsitory<BboChathistory>, IChatH
     {
         try
         {
-            await DbSet.AddAsync(entity);
+            var result = await DbSet.AddAsync(entity);
+            // Entity Framework will set the Chatid after the entity is added
             return true;
         }
         catch (Exception ex)
         {
-            throw new Exception(ex.Message);
+            return false;
         }
     }
 
+    public async Task<BboChathistory> GetLatestChatHistoryAsync(int userId, string message)
+    {
+        return await DbSet
+            .Where(x => x.Userid == userId && x.Message == message)
+            .OrderByDescending(x => x.Sentat)
+            .FirstOrDefaultAsync();
+    }
 }

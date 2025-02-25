@@ -94,7 +94,7 @@
             },
             "TelegramBotBase": {
               "target": "Package",
-              "version": "[6.6.1, )"
+              "version": "[6.0.0, )"
             }
           },
           "imports": [
