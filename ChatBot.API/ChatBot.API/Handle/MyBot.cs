@@ -19,7 +19,7 @@ public class MyBot : IHostedService
 
     public MyBot(ILogger<MyBot> logger, IServiceScopeFactory serviceScopeFactory)
     {
-        _botClient = new TelegramBotClient("7445606959:AAGXH77l7KL4d8bpO-E_HHO7LQn5Nfn5HzM");
+        _botClient = new TelegramBotClient("7734778997:AAE0KtrSjeipZAX6-pM_yUxq6rP6N8z2lcs");
         _logger = logger;
         _cancellationTokenSource = new CancellationTokenSource();
         _serviceScopeFactory = serviceScopeFactory;
@@ -234,122 +234,157 @@ public class MyBot : IHostedService
     #region Gọi API AI Model
     private async Task<string> GetResponseFromAI(long chatId, string message)
     {
+        using var httpClient = new HttpClient();
+        string apiUrl = "http://aitreviet.duckdns.org:8000";
+
+        var payload = new
+        {
+            ID = chatId,
+            message = message
+        };
+
+        var jsonContent = new StringContent(
+            System.Text.Json.JsonSerializer.Serialize(payload),
+            System.Text.Encoding.UTF8,
+            "application/json"
+        );
+
         try
         {
-            // First, create chat history entry with the user's message
-            int? chatHistoryId = await CreateChatHistoryAsync(chatId, message);
-            if (chatHistoryId == null)
-            {
-                _logger.LogError("Failed to create chat history for user {TelegramId}", chatId);
-                return "Sorry, I couldn't process your request at this time.";
-            }
-
-            // Then make the API call
-            using var httpClient = new HttpClient();
-            string apiUrl = "http://aitreviet.duckdns.org:8000";
-
-            var payload = new
-            {
-                ID = chatId,
-                message = message
-            };
-
-            var jsonContent = new StringContent(
-                System.Text.Json.JsonSerializer.Serialize(payload),
-                System.Text.Encoding.UTF8,
-                "application/json"
-            );
-
             var response = await httpClient.PostAsync(apiUrl, jsonContent);
             if (response.IsSuccessStatusCode)
             {
                 string jsonResponse = await response.Content.ReadAsStringAsync();
                 using var doc = System.Text.Json.JsonDocument.Parse(jsonResponse);
-                var aiResponse = doc.RootElement.GetProperty("answer").GetString() ??
+                return doc.RootElement.GetProperty("answer").GetString() ??
                     "Sorry, I couldn't process your request.";
-
-                // Update the chat history with AI response
-                await UpdateChatHistoryResponseAsync(chatHistoryId.Value, aiResponse);
-
-                return aiResponse;
-            }
-            else
-            {
-                _logger.LogError("API call failed with status code: {StatusCode}", response.StatusCode);
-                return "Sorry, I couldn't process your request at this time.";
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error in GetResponseFromAI");
-            return "Sorry, I couldn't process your request at this time.";
+            _logger.LogError(ex, "Error calling AI API");
         }
+
+        return "Sorry, I couldn't process your request at this time.";
     }
+    //private async Task<string> GetResponseFromAI(long chatId, string message)
+    //{
+    //    try
+    //    {
+    //        // First, create chat history entry with the user's message
+    //        int? chatHistoryId = await CreateChatHistoryAsync(chatId, message);
+    //        if (chatHistoryId == null)
+    //        {
+    //            _logger.LogError("Failed to create chat history for user {TelegramId}", chatId);
+    //            return "Sorry, I couldn't process your request at this time.";
+    //        }
 
-    private async Task<int?> CreateChatHistoryAsync(long telegramId, string message)
-    {
-        try
-        {
-            using var scope = _serviceScopeFactory.CreateScope();
-            var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+    //        // Then make the API call
+    //        using var httpClient = new HttpClient();
+    //        string apiUrl = "http://aitreviet.duckdns.org:8000";
 
-            // Get user by telegram ID
-            var user = await unitOfWork.userReponsitory.GetFirstOrDefaultAsync((int)telegramId);
-            if (user == null)
-            {
-                _logger.LogWarning("User not found for Telegram ID: {TelegramId}", telegramId);
-                return null;
-            }
+    //        var payload = new
+    //        {
+    //            ID = chatId,
+    //            message = message
+    //        };
 
-            var chatHistory = new BboChathistory
-            {
-                Userid = user.Id,
-                Message = message,
-                Sentat = DateTime.Now,
-                LanguageCode = "en", // You can modify this based on actual message language detection
-                Updateat = DateTime.Now
-            };
+    //        var jsonContent = new StringContent(
+    //            System.Text.Json.JsonSerializer.Serialize(payload),
+    //            System.Text.Encoding.UTF8,
+    //            "application/json"
+    //        );
 
-            var success = await unitOfWork.chatHistoryReponsitory.AddEntity(chatHistory);
-            if (success)
-            {
-                await unitOfWork.CompleteAsync();
-                return chatHistory.Chatid; // Return the ID of the created chat history
-            }
+    //        var response = await httpClient.PostAsync(apiUrl, jsonContent);
+    //        if (response.IsSuccessStatusCode)
+    //        {
+    //            string jsonResponse = await response.Content.ReadAsStringAsync();
+    //            using var doc = System.Text.Json.JsonDocument.Parse(jsonResponse);
+    //            var aiResponse = doc.RootElement.GetProperty("answer").GetString() ??
+    //                "Sorry, I couldn't process your request.";
 
-            return null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating chat history");
-            return null;
-        }
-    }
+    //            // Update the chat history with AI response
+    //            await UpdateChatHistoryResponseAsync(chatHistoryId.Value, aiResponse);
 
-    private async Task UpdateChatHistoryResponseAsync(int chatHistoryId, string aiResponse)
-    {
-        try
-        {
-            using var scope = _serviceScopeFactory.CreateScope();
-            var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+    //            return aiResponse;
+    //        }
+    //        else
+    //        {
+    //            _logger.LogError("API call failed with status code: {StatusCode}", response.StatusCode);
+    //            return "Sorry, I couldn't process your request at this time.";
+    //        }
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error in GetResponseFromAI");
+    //        return "Sorry, I couldn't process your request at this time.";
+    //    }
+    //}
 
-            var chatHistory = await unitOfWork.chatHistoryReponsitory.GetAsync(chatHistoryId);
-            if (chatHistory != null)
-            {
-                chatHistory.Response = aiResponse;
-                chatHistory.Updateat = DateTime.Now;
-                await unitOfWork.CompleteAsync();
-            }
-            else
-            {
-                _logger.LogWarning("Chat history not found for ID: {ChatHistoryId}", chatHistoryId);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating chat history response");
-        }
-    }
+    //private async Task<int?> CreateChatHistoryAsync(long telegramId, string message)
+    //{
+    //    try
+    //    {
+    //        using var scope = _serviceScopeFactory.CreateScope();
+    //        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+
+    //        // Get user by telegram ID
+    //        var user = await unitOfWork.userReponsitory.GetFirstOrDefaultAsync((int)telegramId);
+    //        if (user == null)
+    //        {
+    //            _logger.LogWarning("User not found for Telegram ID: {TelegramId}", telegramId);
+    //            return null;
+    //        }
+
+    //        var chatHistory = new BboChathistory
+    //        {
+    //            Userid = user.Id,
+    //            Message = message,
+    //            Sentat = DateTime.Now,
+    //            LanguageCode = "en", // You can modify this based on actual message language detection
+    //            Updateat = DateTime.Now
+    //        };
+
+    //        var success = await unitOfWork.chatHistoryReponsitory.AddEntity(chatHistory);
+    //        if (success)
+    //        {
+    //            await unitOfWork.CompleteAsync();
+    //            return chatHistory.Chatid; // Return the ID of the created chat history
+    //        }
+
+    //        return null;
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error creating chat history");
+    //        return null;
+    //    }
+    //}
+
+    //private async Task UpdateChatHistoryResponseAsync(int chatHistoryId, string aiResponse)
+    //{
+    //    try
+    //    {
+    //        using var scope = _serviceScopeFactory.CreateScope();
+    //        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+
+    //        var chatHistory = await unitOfWork.chatHistoryReponsitory.GetAsync(chatHistoryId);
+    //        if (chatHistory != null)
+    //        {
+    //            chatHistory.Response = aiResponse;
+    //            chatHistory.Updateat = DateTime.Now;
+    //            await unitOfWork.CompleteAsync();
+    //        }
+    //        else
+    //        {
+    //            _logger.LogWarning("Chat history not found for ID: {ChatHistoryId}", chatHistoryId);
+    //        }
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error updating chat history response");
+    //    }
+    //}
     #endregion
 
 
