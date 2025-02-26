@@ -23,6 +23,8 @@ public partial class BboUser
 
     public bool? Allownoti { get; set; }
 
+    public string? Onchainid { get; set; }
+
     public virtual ICollection<BboChathistory> BboChathistories { get; set; } = new List<BboChathistory>();
 
     public virtual ICollection<BboChathistoryBk> BboChathistoryBks { get; set; } = new List<BboChathistoryBk>();

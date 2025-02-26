@@ -15,9 +15,9 @@ public partial class BboChathistory
 
     public DateTime? Sentat { get; set; }
 
-    public DateTime? Updateat { get; set; }
-
     public string? LanguageCode { get; set; }
+
+    public decimal? Responsetime { get; set; }
 
     public virtual BboUser? User { get; set; }
 }

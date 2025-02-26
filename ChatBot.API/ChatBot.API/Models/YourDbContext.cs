@@ -53,13 +53,13 @@ public partial class YourDbContext : DbContext
                 .HasMaxLength(1000)
                 .HasColumnName("message");
             entity.Property(e => e.Response).HasColumnName("response");
+            entity.Property(e => e.Responsetime)
+                .HasPrecision(10, 2)
+                .HasColumnName("responsetime");
             entity.Property(e => e.Sentat)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("sentat");
-            entity.Property(e => e.Updateat)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("updateat");
             entity.Property(e => e.Userid).HasColumnName("userid");
 
             entity.HasOne(d => d.User).WithMany(p => p.BboChathistories)
@@ -82,12 +82,12 @@ public partial class YourDbContext : DbContext
                 .HasMaxLength(1000)
                 .HasColumnName("message");
             entity.Property(e => e.Response).HasColumnName("response");
+            entity.Property(e => e.Responsetime)
+                .HasPrecision(10, 2)
+                .HasColumnName("responsetime");
             entity.Property(e => e.Sentat)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("sentat");
-            entity.Property(e => e.Updateat)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("updateat");
             entity.Property(e => e.Userid).HasColumnName("userid");
 
             entity.HasOne(d => d.User).WithMany(p => p.BboChathistoryBks)
@@ -235,6 +235,9 @@ public partial class YourDbContext : DbContext
             entity.Property(e => e.Lastactive)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("lastactive");
+            entity.Property(e => e.Onchainid)
+                .HasMaxLength(250)
+                .HasColumnName("onchainid");
             entity.Property(e => e.Password)
                 .HasMaxLength(250)
                 .HasColumnName("password");

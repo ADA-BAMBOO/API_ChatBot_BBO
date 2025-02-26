@@ -237,7 +237,33 @@ public class MyBot : IHostedService
     {
         try
         {
-            // Make the API call to the AI model first
+            // Send initial "Loading..." message
+            var loadingMessage = await _botClient.SendTextMessageAsync(
+                chatId: chatId,
+                text: "Thinking...",
+                cancellationToken: _cancellationTokenSource.Token
+            );
+
+            // Start a background task to animate the loading dots
+            var cts = new CancellationTokenSource();
+            var loadingTask = Task.Run(async () =>
+            {
+                string[] dots = new[] { "Thinking", "Thinking.", "Thinking..", "Thinking..." };
+                int index = 0;
+                while (!cts.IsCancellationRequested)
+                {
+                    await _botClient.EditMessageTextAsync(
+                        chatId: chatId,
+                        messageId: loadingMessage.MessageId,
+                        text: dots[index],
+                        cancellationToken: _cancellationTokenSource.Token
+                    );
+                    index = (index + 1) % dots.Length; // Cycle through dots
+                    await Task.Delay(500, _cancellationTokenSource.Token); // Update every 0.5 seconds
+                }
+            }, _cancellationTokenSource.Token);
+
+            // Make the API call to the AI model
             using var httpClient = new HttpClient();
             string apiUrl = "http://aitreviet.duckdns.org:8000";
 
@@ -254,36 +280,49 @@ public class MyBot : IHostedService
             );
 
             var response = await httpClient.PostAsync(apiUrl, jsonContent);
+            string aiResponse;
+            decimal? responseTime = null;
+
             if (response.IsSuccessStatusCode)
             {
                 string jsonResponse = await response.Content.ReadAsStringAsync();
                 using var doc = JsonDocument.Parse(jsonResponse);
-                var aiResponse = doc.RootElement.GetProperty("answer").GetString() ??
-                    "Sorry, I couldn't process your request.";
+                var root = doc.RootElement;
 
-                // After getting the AI response, create the chat history
-                await CreateChatHistoryAsync(chatId, message, aiResponse);
-
-                return aiResponse;
+                aiResponse = root.GetProperty("answer").GetString() ?? "Sorry, I couldn't process your request.";
+                responseTime = root.TryGetProperty("time", out var timeElement) ? timeElement.GetDecimal() : null;
             }
             else
             {
                 _logger.LogError("API call failed with status code: {StatusCode}", response.StatusCode);
-                // Still create chat history even if API fails, but with a null response
-                await CreateChatHistoryAsync(chatId, message, null);
-                return "Sorry, I couldn't process your request at this time.";
+                aiResponse = "Sorry, I couldn't process your request at this time.";
             }
+
+            // Cancel the loading animation
+            cts.Cancel();
+            try { await loadingTask; } catch (TaskCanceledException) { }
+
+            // Delete the loading message
+            await _botClient.DeleteMessageAsync(
+                chatId: chatId,
+                messageId: loadingMessage.MessageId,
+                cancellationToken: _cancellationTokenSource.Token
+            );
+
+            // Create chat history
+            await CreateChatHistoryAsync(chatId, message, aiResponse, responseTime);
+
+            return aiResponse;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in GetResponseFromAI");
-            // Create chat history even on exception, with a null response
-            await CreateChatHistoryAsync(chatId, message, null);
+            await CreateChatHistoryAsync(chatId, message, null, null);
             return "Sorry, I couldn't process your request at this time.";
         }
     }
 
-    private async Task CreateChatHistoryAsync(long telegramId, string message, string? aiResponse)
+    private async Task CreateChatHistoryAsync(long telegramId, string message, string? aiResponse, decimal? responseTime)
     {
         try
         {
@@ -297,14 +336,15 @@ public class MyBot : IHostedService
                 Response = aiResponse, // Save the AI response (or null if API failed)
                 Sentat = DateTime.Now,
                 LanguageCode = "en", // Adjust this if you have language detection logic
-                Updateat = DateTime.Now
+                Responsetime = responseTime // Save the response time from the AI model
             };
 
             var success = await unitOfWork.chatHistoryReponsitory.AddEntity(chatHistory);
             if (success)
             {
                 await unitOfWork.CompleteAsync();
-                _logger.LogInformation("Chat history created for Telegram ID: {TelegramId}, Chat ID: {ChatId}", telegramId, chatHistory.Chatid);
+                _logger.LogInformation("Chat history created for Telegram ID: {TelegramId}, Chat ID: {ChatId}, Response Time: {ResponseTime}",
+                    telegramId, chatHistory.Chatid, responseTime);
             }
             else
             {
