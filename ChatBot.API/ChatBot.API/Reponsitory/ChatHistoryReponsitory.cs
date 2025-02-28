@@ -7,11 +7,12 @@ namespace ChatBot.API.Reponsitory;
 
 public class ChatHistoryReponsitory : GenericReponsitory<BboChathistory>, IChatHistoryReponsitory
 {
+    private readonly ILogger<ChatHistoryReponsitory> _logger;
 
-
-    public ChatHistoryReponsitory(YourDbContext _dbContext) : base(_dbContext)
+    public ChatHistoryReponsitory(YourDbContext dbContext) : base(dbContext)
     {
     }
+
     public Task<List<BboChathistory>> GetAllAsyncPaged(int pageIndex, int pageSize)
     {
         return DbSet.OrderByDescending(x => x.Chatid)
@@ -34,12 +35,12 @@ public class ChatHistoryReponsitory : GenericReponsitory<BboChathistory>, IChatH
     {
         try
         {
-            var result = await DbSet.AddAsync(entity);
-            // Entity Framework will set the Chatid after the entity is added
+            await DbSet.AddAsync(entity);
             return true;
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Lỗi khi thêm chat history");
             return false;
         }
     }
@@ -50,5 +51,15 @@ public class ChatHistoryReponsitory : GenericReponsitory<BboChathistory>, IChatH
             .Where(x => x.Userid == userId && x.Message == message)
             .OrderByDescending(x => x.Sentat)
             .FirstOrDefaultAsync();
+    }
+
+    public async Task<DateTime?> GetLastMessageTimeAsync(int userId)
+    {
+        var lastMessage = await DbSet
+            .Where(x => x.Userid == userId)
+            .OrderByDescending(x => x.Sentat)
+            .FirstOrDefaultAsync();
+
+        return lastMessage?.Sentat;
     }
 }

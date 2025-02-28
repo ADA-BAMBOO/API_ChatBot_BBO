@@ -8,6 +8,7 @@ using ChatBot.API.Models;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 using System.Collections.Generic;
+using System.Text;
 
 namespace ChatBot.API.Handle;
 
@@ -18,7 +19,8 @@ public class MyBot : IHostedService
     private readonly ILogger<MyBot> _logger;
     private readonly CancellationTokenSource _cancellationTokenSource;
     private readonly IServiceScopeFactory _serviceScopeFactory;
-    private readonly Dictionary<long, (string State, string Comment)> _feedbackState; // Store user state and comment
+    private readonly Dictionary<long, (string State, string Comment)> _feedbackState;
+    private readonly Dictionary<long, int> _filterPageState;
 
     public MyBot(ILogger<MyBot> logger, IServiceScopeFactory serviceScopeFactory)
     {
@@ -26,13 +28,25 @@ public class MyBot : IHostedService
         _logger = logger;
         _cancellationTokenSource = new CancellationTokenSource();
         _serviceScopeFactory = serviceScopeFactory;
-        _feedbackState = new Dictionary<long, (string, string)>(); // Initialize feedback state storage
+        _feedbackState = new Dictionary<long, (string, string)>();
+        _filterPageState = new Dictionary<long, int>();
     }
     #endregion
 
     #region Start bot & Allow Callback
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        // Đăng ký danh sách lệnh
+        var commands = new[]
+        {
+            new BotCommand { Command = "h", Description = "Show available commands" },
+            new BotCommand { Command = "s", Description = "Account settings" },
+            new BotCommand { Command = "find", Description = "Recommended questions" },
+            new BotCommand { Command = "f", Description = "Send feedback" },
+            new BotCommand { Command = "p", Description = "View achievements" }
+        };
+
+        await _botClient.SetMyCommandsAsync(commands, cancellationToken: cancellationToken);
         var receiverOptions = new ReceiverOptions
         {
             AllowedUpdates = new[] { UpdateType.Message, UpdateType.CallbackQuery },
@@ -99,7 +113,7 @@ public class MyBot : IHostedService
                                     Joindate = DateTime.Now,
                                     Lastactive = DateTime.Now,
                                     Isactive = true,
-                                    Roleid = 3
+                                    Roleid = 3 // Default role is User
                                 };
 
                                 await unitOfWork.userReponsitory.AddEntity(newUser);
@@ -113,43 +127,43 @@ public class MyBot : IHostedService
                         var inlineKeyboard = new InlineKeyboardMarkup(new[]
                         {
                             new[] { InlineKeyboardButton.WithCallbackData("👤 Settings", "settings"), InlineKeyboardButton.WithCallbackData("💡 Filter", "filter") },
-                            new[] { InlineKeyboardButton.WithCallbackData("📝 Feedback", "feedback"), InlineKeyboardButton.WithCallbackData("🎯 Point", "point") },
+                            new[] { InlineKeyboardButton.WithCallbackData("📝 Feedback", "feedback"), InlineKeyboardButton.WithCallbackData("🏆 Point", "point") },
                         });
                         #endregion
 
                         #region Send welcome message
                         var welcomeMessage =
                             $"Hi {update.Message.From?.Username}, Welcome to ADA-BBO Bot!\n\n" +
-                            "🌟 Please select an option:\n" +
-                            "────────────────────────────────\n" +
+                            "📖GovernCardanoBot is an intelligent virtual assistant powered by ChatGPT, designed to answer questions related to the Cardano blockchain and its governance activities.\n\n" +
+                            "🌟 Please select an option:\n\n" +
                             "👤 - Settings: Account Settings\n" +
                             "💡 - Filters: Recommended Questions\n" +
                             "📝 - Feedback: Submit Feedback\n" +
-                            "🎯 - Score: View Achievements\n\n" +
-                            "Or you can use the following commands:\n" +
-                            "────────────────────────────────\n" +
-                            "💡 - /help - Show available commands\n" +
-                            "👤 - /settings - Account settings\n" +
-                            "💡 - /filter - Suggested questions\n" +
-                            "📝 - /feedback - Return feedback\n" +
-                            "🎯 - /point - View achievements";
+                            "🏆 - Score: View Achievements\n\n" +
+                           "Or you can use the following commands:\n\n" +
+                            "❓/h - Show available commands\n" +
+                            "👤/s - Account settings\n" +
+                            "💡/find - Recommended questions\n" +
+                            "📝/f - Send feedback\n" +
+                            "🏆/p - View achievements\n\n" +
+                            "You can join our community group at: [Cardano_ECO_VN](https://t.me/Cardano_ECO_VN)";
 
-                        await botClient.SendTextMessageAsync(chatId, welcomeMessage, replyMarkup: inlineKeyboard, cancellationToken: cancellationToken);
+                        await botClient.SendTextMessageAsync(chatId, welcomeMessage, replyMarkup: inlineKeyboard, cancellationToken: cancellationToken, parseMode: ParseMode.Markdown);
                         #endregion
                         return;
                     }
 
                     string responseMessage = messageText switch
                     {
-                        "/help" => await GetHelpMessage(botClient, chatId, cancellationToken),
-                        "/settings" => await GetSettingsMessage(botClient, chatId, cancellationToken),
-                        "/filter" => "🔍 Filter Options Menu",
-                        "/feedback" => await StartFeedbackProcess(botClient, chatId, cancellationToken),
-                        "/point" => "🎯 Your Achievement Points",
+                        "/h" => await GetHelpMessage(botClient, chatId, cancellationToken),
+                        "/s" => await GetSettingsMessage(botClient, chatId, cancellationToken),
+                        "/find" => await HandleFilterCommand(botClient, chatId, cancellationToken).ContinueWith(_ => string.Empty),
+                        "/f" => await StartFeedbackProcess(botClient, chatId, cancellationToken),
+                        "/p" => "🏆 Your Achievement Points",
                         _ => await GetResponseFromAI(chatId, messageText)
                     };
 
-                    if (messageText != "/help" && messageText != "/feedback" && messageText != "/settings")
+                    if (messageText != "/h" && messageText != "/f" && messageText != "/s")
                     {
                         await botClient.SendTextMessageAsync(chatId, responseMessage, cancellationToken: cancellationToken);
                     }
@@ -184,18 +198,19 @@ public class MyBot : IHostedService
             var role = await unitOfWork.roleReponsitory.GetAsync(user.Roleid ?? 0);
             var roleName = role?.Rolename ?? "User";
 
-            var settingsMessage = "Account Information:\n" +
-                                "─────────────────────────────\n" +
-                                $"Username: {user.Username ?? "Not set"}\n" +
-                                $"TelegramId: {user.Telegramid}\n" +
-                                $"Joindate: {user.Joindate?.ToString("dd/MM/yyyy") ?? "N/A"}\n" +
-                                $"Is active: {(user.Isactive == true ? "Active" : "Inactive")}\n" +
-                                $"Role: {roleName}\n" +
-                                $"Onchain ID: {user.Onchainid ?? "Not set"}";
+            var settingsMessage = "👤Account Information:\n\n" +
+                                 $" - Username: {user.Username ?? "Not set"}\n" +
+                                 $" - Telegram code: {user.Telegramid}\n" +
+                                 $" - Join date: {user.Joindate?.ToString("dd/MM/yyyy") ?? "N/A"}\n" +
+                                 $" - Status: {(user.Isactive == true ? "Active" : "Inactive")}\n" +
+                                 $" - Role: {roleName}\n" +
+                                 $" - Onchain ID: {user.Onchainid ?? "Not set"}\n\n"+
+                                 "You can update your Onchain Id and participation role by selecting the edit buttons below.\n";
 
-            var inlineKeyboard = new InlineKeyboardMarkup(
-                InlineKeyboardButton.WithCallbackData("Update Onchain ID", "update_onchain")
-            );
+            var inlineKeyboard = new InlineKeyboardMarkup(new[]
+            {
+                new[] { InlineKeyboardButton.WithCallbackData("🐙 Onchain ID", "update_onchain"), InlineKeyboardButton.WithCallbackData("🐙Role", "update_role") }
+            });
 
             await botClient.SendTextMessageAsync(
                 chatId: chatId,
@@ -218,7 +233,7 @@ public class MyBot : IHostedService
         _feedbackState[chatId] = ("awaiting_onchainid", string.Empty);
         await botClient.SendTextMessageAsync(
             chatId: chatId,
-            text: "Please enter your new Onchain ID:",
+            text: "💻 Please enter your new Onchain ID:",
             cancellationToken: _cancellationTokenSource.Token
         );
         return string.Empty;
@@ -241,7 +256,7 @@ public class MyBot : IHostedService
                 _feedbackState.Remove(chatId);
                 await botClient.SendTextMessageAsync(
                     chatId: chatId,
-                    text: "Onchain ID updated successfully! Use /settings to view your updated information.",
+                    text: "🐳 Onchain ID updated successfully!\n 🐳Use /s to view your updated information.",
                     cancellationToken: _cancellationTokenSource.Token
                 );
             }
@@ -256,13 +271,66 @@ public class MyBot : IHostedService
             );
         }
     }
+
+    private async Task<string> StartUpdateRoleProcess(ITelegramBotClient botClient, long chatId)
+    {
+        var roleKeyboard = new InlineKeyboardMarkup(new[]
+        {
+            new[] { InlineKeyboardButton.WithCallbackData("🧑‍🏫Drep", "role_2"), InlineKeyboardButton.WithCallbackData("🧑‍💼User", "role_3") },
+            new[] { InlineKeyboardButton.WithCallbackData("👑SPO", "role_4"), InlineKeyboardButton.WithCallbackData("💰Holder", "role_5") },
+            new[] { InlineKeyboardButton.WithCallbackData("🧑‍⚖️Committee", "role_6") }
+        });
+
+        await botClient.SendTextMessageAsync(
+            chatId: chatId,
+            text: "💻 Please select your new role:",
+            replyMarkup: roleKeyboard,
+            cancellationToken: _cancellationTokenSource.Token
+        );
+
+        return string.Empty;
+    }
+
+    private async Task<string> UpdateRole(ITelegramBotClient botClient, long chatId, int? roleId)
+    {
+        try
+        {
+            using var scope = _serviceScopeFactory.CreateScope();
+            var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            var user = await unitOfWork.userReponsitory.GetFirstOrDefaultAsync((int)chatId);
+
+            if (user != null)
+            {
+                user.Roleid = roleId; // Nullable int? as per BboUser model
+                await unitOfWork.userReponsitory.UpdateEntity(user);
+                await unitOfWork.CompleteAsync();
+
+                await botClient.SendTextMessageAsync(
+                    chatId: chatId,
+                    text: "🐳 Role updated successfully!\n🐳Use /s to view your updated information.",
+                    cancellationToken: _cancellationTokenSource.Token
+                );
+            }
+            return string.Empty;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating role for Telegram ID: {TelegramId}", chatId);
+            await botClient.SendTextMessageAsync(
+                chatId: chatId,
+                text: "Error updating role. Please try again.",
+                cancellationToken: _cancellationTokenSource.Token
+            );
+            return "Error";
+        }
+    }
     #endregion
 
     #region Feedback Process
     private async Task<string> StartFeedbackProcess(ITelegramBotClient botClient, long chatId, CancellationToken cancellationToken)
     {
         _feedbackState[chatId] = ("awaiting_comment", string.Empty);
-        await botClient.SendTextMessageAsync(chatId, "Please enter your feedback:", cancellationToken: cancellationToken);
+        await botClient.SendTextMessageAsync(chatId, "💻 Please enter your feedback:", cancellationToken: cancellationToken);
         return string.Empty;
     }
 
@@ -270,18 +338,18 @@ public class MyBot : IHostedService
     {
         var ratingKeyboard = new InlineKeyboardMarkup(new[]
         {
-            new[] { InlineKeyboardButton.WithCallbackData("1", "rate_1"), InlineKeyboardButton.WithCallbackData("2", "rate_2"), InlineKeyboardButton.WithCallbackData("3", "rate_3") },
-            new[] { InlineKeyboardButton.WithCallbackData("4", "rate_4"), InlineKeyboardButton.WithCallbackData("5", "rate_5"), InlineKeyboardButton.WithCallbackData("6", "rate_6") }
+            new[] { InlineKeyboardButton.WithCallbackData("1️⃣", "rate_1"), InlineKeyboardButton.WithCallbackData("2️⃣", "rate_2"), InlineKeyboardButton.WithCallbackData("3️⃣", "rate_3") },
+            new[] { InlineKeyboardButton.WithCallbackData("4️⃣", "rate_4"), InlineKeyboardButton.WithCallbackData("5️⃣", "rate_5"), InlineKeyboardButton.WithCallbackData("⏭️", "rate_6") }
         });
 
-        var messageText = "Please select your satisfaction level:\n" +
-                         "────────────────────────────────\n" +
-                         "• Button 1 ➡️ Dissatisfied\n" +
-                         "• Button 2 ➡️ Slightly disappointed\n" +
-                         "• Button 3 ➡️ Average\n" +
-                         "• Button 4 ➡️ Satisfied\n" +
-                         "• Button 5 ➡️ Very satisfied\n" +
-                         "• Button 6 ➡️ Skip";
+        var messageText = "\n🌟Please select your satisfaction level:\n\n" +
+                         "⛈️ Option 1 ➡️ Dissatisfied\n" +
+                         "🌧️ Option 2 ➡️ Slightly disappointed\n" +
+                         "🌱 Option 3 ➡️ Average\n" +
+                         "🔥 Option 4 ➡️ Satisfied\n" +
+                         "🌈 Option 5 ➡️ Very satisfied\n" +
+                         "🌊 Option 6 ➡️ Skip\n\n"+
+                         "Please select one of the options below to let us know your opinion about your chatbot experience!";
 
         await botClient.SendTextMessageAsync(
             chatId: chatId,
@@ -335,21 +403,123 @@ public class MyBot : IHostedService
     }
     #endregion
 
+    #region Handle Filter Command
+    private async Task HandleFilterCommand(ITelegramBotClient botClient, long chatId, CancellationToken cancellationToken, int page = 1)
+    {
+        try
+        {
+            using var scope = _serviceScopeFactory.CreateScope();
+            var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            var questions = await unitOfWork.filterReponsitory.GetAllAsync();
+
+            if (questions == null || !questions.Any())
+            {
+                await botClient.SendTextMessageAsync(chatId, "No suggested questions available.", cancellationToken: cancellationToken);
+                return;
+            }
+
+            // Cài đặt phân trang
+            const int itemsPerPage = 10;
+            int totalPages = (int)Math.Ceiling(questions.Count / (double)itemsPerPage);
+            page = Math.Max(1, Math.Min(page, totalPages)); // Đảm bảo page trong khoảng hợp lệ
+            _filterPageState[chatId] = page; // Lưu trạng thái trang hiện tại
+
+            // Lấy danh sách câu hỏi cho trang hiện tại
+            var pageQuestions = questions
+                .Skip((page - 1) * itemsPerPage)
+                .Take(itemsPerPage)
+                .ToList();
+
+            // Tạo nội dung tin nhắn
+            var messageText = new StringBuilder("🌟 **List of suggested questions**\n\n");
+            int startIndex = (page - 1) * itemsPerPage + 1;
+            foreach (var (question, index) in pageQuestions.Select((q, i) => (q, i + startIndex)))
+            {
+                messageText.AppendLine($"{index}. {question.Question}");
+            }
+            messageText.AppendLine($"\nPage {page}/{totalPages}");
+
+            // Tạo bàn phím inline
+            var buttons = pageQuestions
+                .Select((q, i) => InlineKeyboardButton.WithCallbackData($"{startIndex + i}", $"filter_question_{(startIndex + i - 1)}"))
+                .Chunk(5) // Mỗi hàng tối đa 5 nút
+                .ToList();
+
+            // Thêm nút phân trang
+            var navigationButtons = new List<InlineKeyboardButton>();
+            if (page > 1)
+                navigationButtons.Add(InlineKeyboardButton.WithCallbackData("⬅️ Prev", $"filter_page_{page - 1}"));
+            if (page < totalPages)
+                navigationButtons.Add(InlineKeyboardButton.WithCallbackData("➡️ Next", $"filter_page_{page + 1}"));
+            if (navigationButtons.Any())
+                buttons.Add(navigationButtons.ToArray());
+
+            var keyboard = new InlineKeyboardMarkup(buttons);
+
+            // Gửi tin nhắn
+            await botClient.SendTextMessageAsync(
+                chatId: chatId,
+                text: messageText.ToString(),
+                parseMode: ParseMode.Markdown,
+                replyMarkup: keyboard,
+                cancellationToken: cancellationToken
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling filter command for Telegram ID: {TelegramId}", chatId);
+            await botClient.SendTextMessageAsync(chatId, "Error loading suggested questions.", cancellationToken: cancellationToken);
+        }
+    }
+
+    private async Task HandleFilterQuestionSelection(ITelegramBotClient botClient, long chatId, int questionIndex, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var scope = _serviceScopeFactory.CreateScope();
+            var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            var questions = await unitOfWork.filterReponsitory.GetAllAsync();
+
+            if (questionIndex >= 0 && questionIndex < questions.Count)
+            {
+                var selectedQuestion = questions[questionIndex].Question;
+                var aiResponse = await GetResponseFromAI(chatId, selectedQuestion);
+                await botClient.SendTextMessageAsync(chatId, aiResponse, cancellationToken: cancellationToken);
+            }
+            else
+            {
+                await botClient.SendTextMessageAsync(chatId, "Invalid question selected.", cancellationToken: cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling filter question selection for Telegram ID: {TelegramId}", chatId);
+            await botClient.SendTextMessageAsync(chatId, "Error processing your question.", cancellationToken: cancellationToken);
+        }
+    }
+    #endregion
+
     #region Gọi lệnh Help Message
     private async Task<string> GetHelpMessage(ITelegramBotClient botClient, long chatId, CancellationToken cancellationToken)
     {
-        var helpMessage = "Available commands:\n" +
-                         "────────────────────────────────\n" +
-                         "💡 - /help - Show available commands\n" +
-                         "👤 - /settings - Account settings\n" +
-                         "💡 - /filter - Suggested questions\n" +
-                         "📝 - /feedback - Return feedback\n" +
-                         "🎯 - /point - View achievements";
+        var helpMessage =
+                    "🌟 Please select an option:\n\n" +
+                    "👤 - Settings: Account Settings\n" +
+                    "💡 - Filters: Recommended Questions\n" +
+                    "📝 - Feedback: Submit Feedback\n" +
+                    "🏆 - Score: View Achievements\n\n" +
+                    "Or you can use the following commands:\n\n" +
+                    "❓/h - Show available commands\n" +
+                    "👤/s - Account settings\n" +
+                    "💡/find - Recommended questions\n" +
+                    "📝/f - Send feedback\n" +
+                    "🏆/p - View achievements\n\n" +
+                    "You can join our community group at: [Cardano_ECO_VN](https://t.me/Cardano_ECO_VN)";
 
         var inlineKeyboard = new InlineKeyboardMarkup(new[]
         {
             new[] { InlineKeyboardButton.WithCallbackData("👤 Settings", "settings"), InlineKeyboardButton.WithCallbackData("💡 Filter", "filter") },
-            new[] { InlineKeyboardButton.WithCallbackData("📝 Feedback", "feedback"), InlineKeyboardButton.WithCallbackData("🎯 Point", "point") },
+            new[] { InlineKeyboardButton.WithCallbackData("📝 Feedback", "feedback"), InlineKeyboardButton.WithCallbackData("🏆 Point", "point") },
         });
 
         await botClient.SendTextMessageAsync(chatId, helpMessage, replyMarkup: inlineKeyboard, cancellationToken: cancellationToken);
@@ -361,27 +531,41 @@ public class MyBot : IHostedService
     private async Task HandleCallbackQuery(ITelegramBotClient botClient, CallbackQuery callbackQuery)
     {
         var chatId = callbackQuery.Message.Chat.Id;
-        var response = callbackQuery.Data switch
+        var callbackData = callbackQuery.Data;
+
+        var response = callbackData switch
         {
             "settings" => await GetSettingsMessage(botClient, chatId, _cancellationTokenSource.Token),
-            "filter" => "🔍 Filter Options Menu",
+            "filter" => await HandleFilterCommand(botClient, chatId, _cancellationTokenSource.Token).ContinueWith(_ => string.Empty),
             "feedback" => await StartFeedbackProcess(botClient, chatId, _cancellationTokenSource.Token),
             "point" => "🎯 Your Achievement Points",
             "update_onchain" => await StartUpdateOnchainProcess(botClient, chatId),
-            "rate_1" or "rate_2" or "rate_3" or "rate_4" or "rate_5" or "rate_6" =>
+            "update_role" => await StartUpdateRoleProcess(botClient, chatId),
+            var data when data.StartsWith("role_") =>
+                await UpdateRole(botClient, chatId, int.Parse(data.Split('_')[1])).ContinueWith(_ => string.Empty),
+            var data when data.StartsWith("rate_") =>
                 await HandleFeedbackRating(botClient, callbackQuery).ContinueWith(_ => string.Empty),
+            var data when data.StartsWith("filter_page_") =>
+                await HandleFilterCommand(botClient, chatId, _cancellationTokenSource.Token, int.Parse(data.Split('_')[2])).ContinueWith(_ => string.Empty),
+            var data when data.StartsWith("filter_question_") =>
+                await HandleFilterQuestionSelection(botClient, chatId, int.Parse(data.Split('_')[2]), _cancellationTokenSource.Token).ContinueWith(_ => string.Empty),
             _ => "Invalid option"
         };
 
-        if (callbackQuery.Data != "feedback" &&
-            !callbackQuery.Data.StartsWith("rate_") &&
-            callbackQuery.Data != "settings" &&
-            callbackQuery.Data != "update_onchain")
+        if (callbackData != "feedback" &&
+            !callbackData.StartsWith("rate_") &&
+            callbackData != "settings" &&
+            callbackData != "update_onchain" &&
+            callbackData != "update_role" &&
+            !callbackData.StartsWith("role_") &&
+            callbackData != "filter" &&
+            !callbackData.StartsWith("filter_page_") &&
+            !callbackData.StartsWith("filter_question_"))
         {
             await botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
             await botClient.SendTextMessageAsync(chatId, response);
         }
-        else if (callbackQuery.Data == "update_onchain" || callbackQuery.Data == "settings")
+        else
         {
             await botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
         }
@@ -399,11 +583,11 @@ public class MyBot : IHostedService
     #region Gọi API AI Model
     private async Task<string> GetResponseFromAI(long chatId, string message)
     {
-        var loadingMessage = await _botClient.SendTextMessageAsync(chatId, "Thinking...", cancellationToken: _cancellationTokenSource.Token);
+        var loadingMessage = await _botClient.SendTextMessageAsync(chatId, "...", cancellationToken: _cancellationTokenSource.Token);
         var cts = new CancellationTokenSource();
         var loadingTask = Task.Run(async () =>
         {
-            string[] dots = new[] { "Thinking", "Thinking.", "Thinking..", "Thinking..." };
+            string[] dots = new[] { "Typing", "Typing.", "Typing..", "Typing..." };
             int index = 0;
             while (!cts.IsCancellationRequested)
             {
