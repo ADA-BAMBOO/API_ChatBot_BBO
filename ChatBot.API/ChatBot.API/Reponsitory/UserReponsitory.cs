@@ -12,7 +12,7 @@ public class UserReponsitory : GenericReponsitory<BboUser>, IUserReponsitory
 
     public override Task<List<BboUser>> GetAllAsync()
     {
-        return base.GetAllAsync();
+        return DbSet.OrderByDescending(x => x.Id).ToListAsync();
     }
 
     public override async Task<BboUser> GetAsync(int id)

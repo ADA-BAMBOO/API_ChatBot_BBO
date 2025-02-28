@@ -12,7 +12,7 @@ public class RoleReponsitory : GenericReponsitory<BboRole>, IRoleReponsitory
 
     public override Task<List<BboRole>> GetAllAsync()
     {
-        return base.GetAllAsync();
+        return DbSet.OrderByDescending(x => x.Id).ToListAsync();
     }
 
     public override async Task<BboRole> GetAsync(int id)

@@ -12,10 +12,17 @@ public class ChatHistoryReponsitory : GenericReponsitory<BboChathistory>, IChatH
     public ChatHistoryReponsitory(YourDbContext _dbContext) : base(_dbContext)
     {
     }
+    public Task<List<BboChathistory>> GetAllAsyncPaged(int pageIndex, int pageSize)
+    {
+        return DbSet.OrderByDescending(x => x.Chatid)
+                    .Skip(pageIndex * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+    }
 
     public override Task<List<BboChathistory>> GetAllAsync()
     {
-        return base.GetAllAsync();
+        return DbSet.OrderByDescending(x => x.Chatid).ToListAsync();
     }
 
     public override async Task<BboChathistory> GetAsync(int id)

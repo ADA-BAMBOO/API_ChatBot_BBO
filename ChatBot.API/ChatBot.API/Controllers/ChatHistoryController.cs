@@ -16,9 +16,9 @@ public class ChatHistoryController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll(int pageIndex, int pageSize)
     {
-        var _data = await unitOfWork.chatHistoryReponsitory.GetAllAsync();
+        var _data = await unitOfWork.chatHistoryReponsitory.GetAllAsyncPaged(pageIndex, pageSize);
         return Ok(_data);
     }
 

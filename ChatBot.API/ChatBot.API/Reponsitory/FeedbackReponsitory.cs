@@ -12,7 +12,7 @@ public class FeedbackReponsitory : GenericReponsitory<BboFeedback>, IFeedbackRep
 
     public override Task<List<BboFeedback>> GetAllAsync()
     {
-        return base.GetAllAsync();
+        return DbSet.OrderByDescending(x => x.Id).ToListAsync();
     }
 
     public override async Task<BboFeedback> GetAsync(int id)

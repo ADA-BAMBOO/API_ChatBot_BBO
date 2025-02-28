@@ -6,6 +6,7 @@ public interface IUnitOfWork
     IRoleReponsitory roleReponsitory { get; }
     IChatHistoryReponsitory chatHistoryReponsitory { get; }
     IFeedbackReponsitory feedbackReponsitory { get; }
+    IFilterReponsitory filterReponsitory { get; }
 
     Task CompleteAsync();
 }

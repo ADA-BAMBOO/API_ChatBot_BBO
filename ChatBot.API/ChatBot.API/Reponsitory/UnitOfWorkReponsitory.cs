@@ -9,6 +9,7 @@ public class UnitOfWorkReponsitory : IUnitOfWork
     public IRoleReponsitory roleReponsitory { get; private set; }
     public IChatHistoryReponsitory chatHistoryReponsitory { get; private set; }
     public IFeedbackReponsitory feedbackReponsitory { get; private set; }
+    public IFilterReponsitory filterReponsitory { get; private set; }
 
     private readonly YourDbContext yourDbContext;
 
@@ -19,6 +20,7 @@ public class UnitOfWorkReponsitory : IUnitOfWork
         roleReponsitory = new RoleReponsitory(yourDbContext);
         feedbackReponsitory = new FeedbackReponsitory(yourDbContext);
         chatHistoryReponsitory = new ChatHistoryReponsitory(yourDbContext);
+        filterReponsitory = new FilterReponsitory(yourDbContext);
 
     }
     public async Task CompleteAsync()

@@ -44,4 +44,8 @@ public class GenericReponsitory<T> : IGenericReponsitory<T> where T : class
         throw new NotImplementedException();
     }
 
+    public Task<List<T>> GetAllAsyncPaged(int pageIndex, int pageSize)
+    {
+        throw new NotImplementedException();
+    }
 }
