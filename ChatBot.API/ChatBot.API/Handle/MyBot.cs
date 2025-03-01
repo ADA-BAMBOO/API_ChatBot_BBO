@@ -39,18 +39,20 @@ public class MyBot : IHostedService
         // Đăng ký danh sách lệnh
         var commands = new[]
         {
-            new BotCommand { Command = "h", Description = "Show available commands" },
-            new BotCommand { Command = "s", Description = "Account settings" },
-            new BotCommand { Command = "find", Description = "Recommended questions" },
-            new BotCommand { Command = "f", Description = "Send feedback" },
-            new BotCommand { Command = "p", Description = "View achievements" }
-        };
+        new BotCommand { Command = "h", Description = "Show available commands" },
+        new BotCommand { Command = "s", Description = "Account settings" },
+        new BotCommand { Command = "find", Description = "Recommended questions" },
+        new BotCommand { Command = "f", Description = "Send feedback" },
+        new BotCommand { Command = "p", Description = "View achievements" }
+    };
 
         await _botClient.SetMyCommandsAsync(commands, cancellationToken: cancellationToken);
+
         var receiverOptions = new ReceiverOptions
         {
             AllowedUpdates = new[] { UpdateType.Message, UpdateType.CallbackQuery },
-            ThrowPendingUpdates = true
+            ThrowPendingUpdates = true,
+            Limit = 100 // Tăng giới hạn số lượng bản cập nhật xử lý đồng thời
         };
 
         _botClient.StartReceiving(
@@ -80,7 +82,10 @@ public class MyBot : IHostedService
                     var (state, _) = _feedbackState[chatId];
                     if (state == "awaiting_comment")
                     {
-                        _feedbackState[chatId] = ("awaiting_rating", update.Message.Text);
+                        lock (_feedbackState) // Đảm bảo an toàn khi truy cập dictionary
+                        {
+                            _feedbackState[chatId] = ("awaiting_rating", update.Message.Text);
+                        }
                         await SendRatingButtons(botClient, chatId, cancellationToken);
                         return;
                     }
@@ -98,9 +103,9 @@ public class MyBot : IHostedService
 
                     if (messageText == "/start")
                     {
-                        #region Create new user
-                        using (var scope = _serviceScopeFactory.CreateScope())
+                        await Task.Run(async () => // Chạy tạo người dùng trên thread riêng
                         {
+                            using var scope = _serviceScopeFactory.CreateScope();
                             var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
                             var existingUser = await unitOfWork.userReponsitory.GetFirstOrDefaultAsync((int)chatId);
 
@@ -120,15 +125,14 @@ public class MyBot : IHostedService
                                 await unitOfWork.CompleteAsync();
                                 _logger.LogInformation("Created new user with Telegram ID: {TelegramId}", chatId);
                             }
-                        }
-                        #endregion
+                        }, cancellationToken);
 
                         #region Create inline keyboard
                         var inlineKeyboard = new InlineKeyboardMarkup(new[]
                         {
-                            new[] { InlineKeyboardButton.WithCallbackData("👤 Settings", "settings"), InlineKeyboardButton.WithCallbackData("💡 Filter", "filter") },
-                            new[] { InlineKeyboardButton.WithCallbackData("📝 Feedback", "feedback"), InlineKeyboardButton.WithCallbackData("🏆 Point", "point") },
-                        });
+                        new[] { InlineKeyboardButton.WithCallbackData("👤 Settings", "settings"), InlineKeyboardButton.WithCallbackData("💡 Filter", "filter") },
+                        new[] { InlineKeyboardButton.WithCallbackData("📝 Feedback", "feedback"), InlineKeyboardButton.WithCallbackData("🏆 Point", "point") },
+                    });
                         #endregion
 
                         #region Send welcome message
@@ -153,7 +157,7 @@ public class MyBot : IHostedService
                         return;
                     }
 
-                    string responseMessage = messageText switch
+                    string responseMessage = await Task.Run(async () => messageText switch
                     {
                         "/h" => await GetHelpMessage(botClient, chatId, cancellationToken),
                         "/s" => await GetSettingsMessage(botClient, chatId, cancellationToken),
@@ -161,7 +165,7 @@ public class MyBot : IHostedService
                         "/f" => await StartFeedbackProcess(botClient, chatId, cancellationToken),
                         "/p" => "🏆 Your Achievement Points",
                         _ => await GetResponseFromAI(chatId, messageText)
-                    };
+                    }, cancellationToken);
 
                     if (messageText != "/h" && messageText != "/f" && messageText != "/s")
                     {
@@ -406,70 +410,56 @@ public class MyBot : IHostedService
     #region Handle Filter Command
     private async Task HandleFilterCommand(ITelegramBotClient botClient, long chatId, CancellationToken cancellationToken, int page = 1)
     {
-        try
+        await Task.Run(async () =>
         {
-            using var scope = _serviceScopeFactory.CreateScope();
-            var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var questions = await unitOfWork.filterReponsitory.GetAllAsync();
-
-            if (questions == null || !questions.Any())
+            try
             {
-                await botClient.SendTextMessageAsync(chatId, "No suggested questions available.", cancellationToken: cancellationToken);
-                return;
+                using var scope = _serviceScopeFactory.CreateScope();
+                var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+                var questions = await unitOfWork.filterReponsitory.GetAllAsync();
+
+                if (questions == null || !questions.Any())
+                {
+                    await botClient.SendTextMessageAsync(chatId, "No suggested questions available.", cancellationToken: cancellationToken);
+                    return;
+                }
+
+                const int itemsPerPage = 10;
+                int totalPages = (int)Math.Ceiling(questions.Count / (double)itemsPerPage);
+                page = Math.Max(1, Math.Min(page, totalPages));
+                lock (_filterPageState) // Đảm bảo an toàn khi truy cập dictionary
+                {
+                    _filterPageState[chatId] = page;
+                }
+
+                var pageQuestions = questions.Skip((page - 1) * itemsPerPage).Take(itemsPerPage).ToList();
+                var messageText = new StringBuilder("🌟 **List of suggested questions**\n\n");
+                int startIndex = (page - 1) * itemsPerPage + 1;
+                foreach (var (question, index) in pageQuestions.Select((q, i) => (q, i + startIndex)))
+                {
+                    messageText.AppendLine($"{index}. {question.Question}");
+                }
+                messageText.AppendLine($"\nPage {page}/{totalPages}");
+
+                var buttons = pageQuestions
+                    .Select((q, i) => InlineKeyboardButton.WithCallbackData($"{startIndex + i}", $"filter_question_{(startIndex + i - 1)}"))
+                    .Chunk(5)
+                    .ToList();
+
+                var navigationButtons = new List<InlineKeyboardButton>();
+                if (page > 1) navigationButtons.Add(InlineKeyboardButton.WithCallbackData("⬅️ Prev", $"filter_page_{page - 1}"));
+                if (page < totalPages) navigationButtons.Add(InlineKeyboardButton.WithCallbackData("➡️ Next", $"filter_page_{page + 1}"));
+                if (navigationButtons.Any()) buttons.Add(navigationButtons.ToArray());
+
+                var keyboard = new InlineKeyboardMarkup(buttons);
+                await botClient.SendTextMessageAsync(chatId, messageText.ToString(), parseMode: ParseMode.Markdown, replyMarkup: keyboard, cancellationToken: cancellationToken);
             }
-
-            // Cài đặt phân trang
-            const int itemsPerPage = 10;
-            int totalPages = (int)Math.Ceiling(questions.Count / (double)itemsPerPage);
-            page = Math.Max(1, Math.Min(page, totalPages)); // Đảm bảo page trong khoảng hợp lệ
-            _filterPageState[chatId] = page; // Lưu trạng thái trang hiện tại
-
-            // Lấy danh sách câu hỏi cho trang hiện tại
-            var pageQuestions = questions
-                .Skip((page - 1) * itemsPerPage)
-                .Take(itemsPerPage)
-                .ToList();
-
-            // Tạo nội dung tin nhắn
-            var messageText = new StringBuilder("🌟 **List of suggested questions**\n\n");
-            int startIndex = (page - 1) * itemsPerPage + 1;
-            foreach (var (question, index) in pageQuestions.Select((q, i) => (q, i + startIndex)))
+            catch (Exception ex)
             {
-                messageText.AppendLine($"{index}. {question.Question}");
+                _logger.LogError(ex, "Error handling filter command for Telegram ID: {TelegramId}", chatId);
+                await botClient.SendTextMessageAsync(chatId, "Error loading suggested questions.", cancellationToken: cancellationToken);
             }
-            messageText.AppendLine($"\nPage {page}/{totalPages}");
-
-            // Tạo bàn phím inline
-            var buttons = pageQuestions
-                .Select((q, i) => InlineKeyboardButton.WithCallbackData($"{startIndex + i}", $"filter_question_{(startIndex + i - 1)}"))
-                .Chunk(5) // Mỗi hàng tối đa 5 nút
-                .ToList();
-
-            // Thêm nút phân trang
-            var navigationButtons = new List<InlineKeyboardButton>();
-            if (page > 1)
-                navigationButtons.Add(InlineKeyboardButton.WithCallbackData("⬅️ Prev", $"filter_page_{page - 1}"));
-            if (page < totalPages)
-                navigationButtons.Add(InlineKeyboardButton.WithCallbackData("➡️ Next", $"filter_page_{page + 1}"));
-            if (navigationButtons.Any())
-                buttons.Add(navigationButtons.ToArray());
-
-            var keyboard = new InlineKeyboardMarkup(buttons);
-
-            // Gửi tin nhắn
-            await botClient.SendTextMessageAsync(
-                chatId: chatId,
-                text: messageText.ToString(),
-                parseMode: ParseMode.Markdown,
-                replyMarkup: keyboard,
-                cancellationToken: cancellationToken
-            );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error handling filter command for Telegram ID: {TelegramId}", chatId);
-            await botClient.SendTextMessageAsync(chatId, "Error loading suggested questions.", cancellationToken: cancellationToken);
-        }
+        }, cancellationToken);
     }
 
     private async Task HandleFilterQuestionSelection(ITelegramBotClient botClient, long chatId, int questionIndex, CancellationToken cancellationToken)
@@ -584,59 +574,71 @@ public class MyBot : IHostedService
     private async Task<string> GetResponseFromAI(long chatId, string message)
     {
         var loadingMessage = await _botClient.SendTextMessageAsync(chatId, "...", cancellationToken: _cancellationTokenSource.Token);
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30)); // Timeout 30 giây
         var loadingTask = Task.Run(async () =>
         {
             string[] dots = new[] { "Typing", "Typing.", "Typing..", "Typing..." };
             int index = 0;
-            while (!cts.IsCancellationRequested)
+            while (!cts.Token.IsCancellationRequested)
             {
-                await _botClient.EditMessageTextAsync(chatId, loadingMessage.MessageId, dots[index], cancellationToken: _cancellationTokenSource.Token);
+                await _botClient.EditMessageTextAsync(chatId, loadingMessage.MessageId, dots[index], cancellationToken: cts.Token);
                 index = (index + 1) % dots.Length;
-                await Task.Delay(500, _cancellationTokenSource.Token);
+                await Task.Delay(500, cts.Token);
             }
-        }, _cancellationTokenSource.Token);
+        }, cts.Token);
 
         try
         {
-            using var httpClient = new HttpClient();
-            string apiUrl = "http://aitreviet.duckdns.org:8000";
-            var payload = new { ID = chatId, message = message };
-            var jsonContent = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
-
-            var response = await httpClient.PostAsync(apiUrl, jsonContent);
-            string aiResponse;
-            decimal? responseTime = null;
-
-            if (response.IsSuccessStatusCode)
+            return await Task.Run(async () =>
             {
-                string jsonResponse = await response.Content.ReadAsStringAsync();
-                using var doc = JsonDocument.Parse(jsonResponse);
-                var root = doc.RootElement;
-                aiResponse = root.GetProperty("answer").GetString() ?? "Sorry, I couldn't process your request.";
-                responseTime = root.TryGetProperty("time", out var timeElement) ? timeElement.GetDecimal() : null;
-            }
-            else
-            {
-                _logger.LogError("API call failed with status code: {StatusCode}", response.StatusCode);
-                aiResponse = "Sorry, I couldn't process your request at this time.";
-            }
+                using var httpClient = new HttpClient();
+                string apiUrl = "http://aitreviet.duckdns.org:8000";
+                var payload = new { ID = chatId, message = message };
+                var jsonContent = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
 
+                var response = await httpClient.PostAsync(apiUrl, jsonContent, cts.Token);
+                string aiResponse;
+                decimal? responseTime = null;
+
+                if (response.IsSuccessStatusCode)
+                {
+                    string jsonResponse = await response.Content.ReadAsStringAsync(cts.Token);
+                    using var doc = JsonDocument.Parse(jsonResponse);
+                    var root = doc.RootElement;
+                    aiResponse = root.GetProperty("answer").GetString() ?? "Sorry, I couldn't process your request.";
+                    responseTime = root.TryGetProperty("time", out var timeElement) ? timeElement.GetDecimal() : null;
+                }
+                else
+                {
+                    _logger.LogError("API call failed with status code: {StatusCode}", response.StatusCode);
+                    aiResponse = "Sorry, I couldn't process your request at this time.";
+                }
+
+                return aiResponse;
+            }, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Request timed out for Telegram ID: {TelegramId}", chatId);
             cts.Cancel();
             try { await loadingTask; } catch (TaskCanceledException) { }
-            await _botClient.DeleteMessageAsync(chatId, loadingMessage.MessageId, cancellationToken: _cancellationTokenSource.Token);
-            await CreateChatHistoryAsync(chatId, message, aiResponse, responseTime);
-
-            return aiResponse;
+            await _botClient.DeleteMessageAsync(chatId, loadingMessage.MessageId, cts.Token);
+            return "Request timed out. Please try again later.";
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error in GetResponseFromAI");
+            _logger.LogError(ex, "Error in GetResponseFromAI for Telegram ID: {TelegramId}", chatId);
             cts.Cancel();
             try { await loadingTask; } catch (TaskCanceledException) { }
-            await _botClient.DeleteMessageAsync(chatId, loadingMessage.MessageId, cancellationToken: _cancellationTokenSource.Token);
+            await _botClient.DeleteMessageAsync(chatId, loadingMessage.MessageId, cts.Token);
             await CreateChatHistoryAsync(chatId, message, null, null);
             return "Sorry, I couldn't process your request at this time.";
+        }
+        finally
+        {
+            cts.Cancel();
+            try { await loadingTask; } catch (TaskCanceledException) { }
+            await _botClient.DeleteMessageAsync(chatId, loadingMessage.MessageId, _cancellationTokenSource.Token);
         }
     }
 
