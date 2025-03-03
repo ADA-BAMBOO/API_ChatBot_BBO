@@ -1,7 +1,8 @@
-﻿using ChatBot.API.Interface;
+﻿using ChatBot.API.Controllers;
+using ChatBot.API.Interface;
 using ChatBot.API.Models;
 using ChatBot.API.Reponsitory;
-using ChatBot.API.Handle;
+//using ChatBot.API.Handle;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using Telegram.Bot;
@@ -39,9 +40,11 @@ builder.Services.AddSingleton<ITelegramBotClient>(sp =>
 // Thêm logging
 builder.Logging.AddConsole();
 
+// Đăng ký BotController (thay vì HostedService MyBot)
+builder.Services.AddScoped<BotController>();
 
 // Add the bot as a hosted service
-builder.Services.AddHostedService<MyBot>();
+//builder.Services.AddHostedService<MyBot>();
 
 var app = builder.Build();
 
@@ -57,5 +60,13 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Đặt webhook khi ứng dụng khởi động
+app.Lifetime.ApplicationStarted.Register(async () =>
+{
+    var botClient = app.Services.GetRequiredService<ITelegramBotClient>();
+    var webhookUrl = builder.Configuration["Webhook:Url"] ?? "https://e2bb-171-254-208-205.ngrok-free.app/api/bot"; // Thay bằng URL công khai của bạn
+    await botClient.SetWebhookAsync(webhookUrl);
+});
 
 app.Run();
