@@ -65,7 +65,7 @@ app.MapControllers();
 app.Lifetime.ApplicationStarted.Register(async () =>
 {
     var botClient = app.Services.GetRequiredService<ITelegramBotClient>();
-    var webhookUrl = builder.Configuration["Webhook:Url"] ?? "https://e2bb-171-254-208-205.ngrok-free.app/api/bot"; // Thay bằng URL công khai của bạn
+    var webhookUrl = builder.Configuration["Webhook:Url"] ?? "https://1dce-171-254-208-205.ngrok-free.app/api/bot"; // Thay bằng URL công khai của bạn
     await botClient.SetWebhookAsync(webhookUrl);
 });
 

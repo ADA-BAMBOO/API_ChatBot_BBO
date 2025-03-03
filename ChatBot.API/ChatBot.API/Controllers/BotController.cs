@@ -13,6 +13,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using System.Threading;
+using System; // Thêm để sử dụng HashSet
 
 namespace ChatBot.API.Controllers
 {
@@ -25,6 +26,7 @@ namespace ChatBot.API.Controllers
         private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly Dictionary<long, (string State, string Comment)> _feedbackState;
         private readonly Dictionary<long, int> _filterPageState;
+        private readonly HashSet<long> _processedUpdateIds; // Theo dõi UpdateId đã xử lý
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
         public BotController(ITelegramBotClient botClient, IServiceScopeFactory serviceScopeFactory, ILogger<BotController> logger)
@@ -34,6 +36,7 @@ namespace ChatBot.API.Controllers
             _serviceScopeFactory = serviceScopeFactory ?? throw new ArgumentNullException(nameof(serviceScopeFactory));
             _feedbackState = new Dictionary<long, (string, string)>();
             _filterPageState = new Dictionary<long, int>();
+            _processedUpdateIds = new HashSet<long>(); // Khởi tạo HashSet
         }
 
         [HttpPost]
@@ -42,28 +45,27 @@ namespace ChatBot.API.Controllers
             if (update == null) return Ok();
 
             var chatId = update.Message?.Chat.Id ?? update.CallbackQuery?.Message.Chat.Id ?? 0;
+            var updateId = update.Id; // Lấy UpdateId từ bản cập nhật
+
+            // Kiểm tra nếu bản cập nhật đã được xử lý
+            if (_processedUpdateIds.Contains(updateId))
+            {
+                _logger.LogWarning("Duplicate update detected with UpdateId: {UpdateId}, skipping processing", updateId);
+                return Ok();
+            }
 
             try
             {
                 if (update.Message != null)
                 {
                     var messageText = update.Message.Text;
-                    _logger.LogInformation("Received message from chat {ChatId}: {Message}", chatId, messageText);
+                    _logger.LogInformation("Received message from chat {ChatId}: {Message} with UpdateId {UpdateId}", chatId, messageText, updateId);
 
                     // Xử lý state trước khi vào switch
                     if (_feedbackState.ContainsKey(chatId) && messageText != null)
                     {
                         var (state, _) = _feedbackState[chatId];
-                        if (state == "awaiting_comment")
-                        {
-                            lock (_feedbackState)
-                            {
-                                _feedbackState[chatId] = ("awaiting_rating", messageText); // Lưu comment
-                            }
-                            await SendRatingButtons(chatId, cancellationToken);
-                            return Ok(); // Kết thúc xử lý sau khi hiển thị nút
-                        }
-                        else if (state == "awaiting_onchainid")
+                        if (state == "awaiting_onchainid")
                         {
                             await UpdateOnchainId(chatId, messageText, cancellationToken);
                             return Ok();
@@ -72,69 +74,100 @@ namespace ChatBot.API.Controllers
 
                     if (messageText != null)
                     {
-                        if (messageText == "/start")
+                        string responseMessage = string.Empty;
+                        using (var scope = _serviceScopeFactory.CreateScope())
                         {
-                            using var scope = _serviceScopeFactory.CreateScope();
                             var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-                            var existingUser = await unitOfWork.userReponsitory.GetFirstOrDefaultAsync((int)chatId);
 
-                            if (existingUser == null)
+                            switch (messageText.Split(' ')[0]) // Chỉ lấy phần đầu tiên trước dấu cách
                             {
-                                var newUser = new BboUser
-                                {
-                                    Telegramid = (int)chatId,
-                                    Username = update.Message.From?.Username,
-                                    Joindate = DateTime.Now,
-                                    Lastactive = DateTime.Now,
-                                    Isactive = true,
-                                    Roleid = 3 // Default role is User
-                                };
+                                case "/start":
+                                    var existingUser = await unitOfWork.userReponsitory.GetFirstOrDefaultAsync((int)chatId);
 
-                                await unitOfWork.userReponsitory.AddEntity(newUser);
-                                await unitOfWork.CompleteAsync();
-                                _logger.LogInformation("Created new user with Telegram ID: {TelegramId}", chatId);
+                                    if (existingUser == null)
+                                    {
+                                        var newUser = new BboUser
+                                        {
+                                            Telegramid = (int)chatId,
+                                            Username = update.Message.From?.Username ?? "User",
+                                            Joindate = DateTime.Now,
+                                            Lastactive = DateTime.Now,
+                                            Isactive = true,
+                                            Roleid = 3 // Default role is User
+                                        };
+
+                                        await unitOfWork.userReponsitory.AddEntity(newUser);
+                                        await unitOfWork.CompleteAsync();
+                                        _logger.LogInformation("Created new user with Telegram ID: {TelegramId}", chatId);
+                                    }
+
+                                    var inlineKeyboard = new InlineKeyboardMarkup(new[]
+                                    {
+                                        new[] { InlineKeyboardButton.WithCallbackData("👤 Settings", "settings"), InlineKeyboardButton.WithCallbackData("💡 Filter", "filter") },
+                                        new[] { InlineKeyboardButton.WithCallbackData("📝 Feedback", "feedback"), InlineKeyboardButton.WithCallbackData("🏆 Point", "point") }
+                                    });
+
+                                    string username = update.Message.From?.Username ?? "User";
+                                    var welcomeMessage =
+                                        $"Hi *{username}*, Welcome to *GovernCardanoBot*!\n\n" +
+                                        "📖 *GovernCardanoBot* is an intelligent virtual assistant powered by ChatGPT, designed to answer questions related to the Cardano blockchain and its governance activities.\n\n" +
+                                        "🌟 *Please select an option:*\n\n" +
+                                        "👤 - *Settings*: _Account Settings_\n" +
+                                        "💡 - *Filters*: _Recommended Questions_\n" +
+                                        "📝 - *Feedback*: _Submit Feedback_\n" +
+                                        "🏆 - *Score*: _View Achievements_\n\n" +
+                                        "Or you can use the following commands:\n\n" +
+                                        "❓ */h* - _Show available commands_\n" +
+                                        "👤 */s* - _Account settings_\n" +
+                                        "💡 */find* - _Recommended questions_\n" +
+                                        "📝 */f* - _Send feedback_\n" +
+                                        "🏆 */p* - _View achievements_\n\n" +
+                                        "You can join our community group at: *[Cardano_ECO_VN](https://t.me/Cardano_ECO_VN)*";
+
+                                    await _botClient.SendTextMessageAsync(chatId, welcomeMessage, replyMarkup: inlineKeyboard, cancellationToken: cancellationToken, parseMode: ParseMode.Markdown);
+                                    break;
+
+                                case "/h":
+                                    var helpMessage = await GetHelpMessage(chatId, cancellationToken); // Chỉ lấy nội dung
+                                    responseMessage = null; // Không cần gán lại để tránh gửi lần nữa
+                                    await _botClient.SendTextMessageAsync(chatId, helpMessage, replyMarkup: GetHelpInlineKeyboard(), cancellationToken: cancellationToken, parseMode: ParseMode.Markdown);
+                                    break;
+
+                                case "/s":
+                                    responseMessage = await GetSettingsMessage(chatId, cancellationToken);
+                                    break;
+
+                                case "/find":
+                                    responseMessage = await HandleFilterCommand(chatId, cancellationToken);
+                                    break;
+
+                                case "/p":
+                                    responseMessage = "🏆 Your Achievement Points";
+                                    break;
+
+                                case "/f":
+                                    string feedback = string.Join(" ", messageText.Split(' ').Skip(1)); // Lấy phần còn lại sau "/f"
+                                    if (string.IsNullOrWhiteSpace(feedback))
+                                    {
+                                        responseMessage = "Please provide feedback with the command. Example: /f This is my feedback";
+                                    }
+                                    else
+                                    {
+                                        await SaveFeedback(chatId, 0, feedback, cancellationToken); // Lưu feedback mà không cần rating
+                                        responseMessage = "Thank you for your feedback! 💖";
+                                    }
+                                    break;
+
+                                default:
+                                    responseMessage = "Thank you";
+                                    break;
                             }
-
-                            var inlineKeyboard = new InlineKeyboardMarkup(new[]
-                            {
-                                new[] { InlineKeyboardButton.WithCallbackData("👤 Settings", "settings"), InlineKeyboardButton.WithCallbackData("💡 Filter", "filter") },
-                                new[] { InlineKeyboardButton.WithCallbackData("📝 Feedback", "feedback"), InlineKeyboardButton.WithCallbackData("🏆 Point", "point") }
-                            });
-
-                            var welcomeMessage =
-                                $"Hi {update.Message.From?.Username}, Welcome to ADA-BBO Bot!\n\n" +
-                                "📖GovernCardanoBot is an intelligent virtual assistant powered by ChatGPT, designed to answer questions related to the Cardano blockchain and its governance activities.\n\n" +
-                                "🌟 Please select an option:\n\n" +
-                                "👤 - Settings: Account Settings\n" +
-                                "💡 - Filters: Recommended Questions\n" +
-                                "📝 - Feedback: Submit Feedback\n" +
-                                "🏆 - Score: View Achievements\n\n" +
-                                "Or you can use the following commands:\n\n" +
-                                "❓/h - Show available commands\n" +
-                                "👤/s - Account settings\n" +
-                                "💡/find - Recommended questions\n" +
-                                "📝/f - Send feedback\n" +
-                                "🏆/p - View achievements\n\n" +
-                                "You can join our community group at: [Cardano_ECO_VN](https://t.me/Cardano_ECO_VN)";
-
-                            await _botClient.SendTextMessageAsync(chatId, welcomeMessage, replyMarkup: inlineKeyboard, cancellationToken: cancellationToken, parseMode: ParseMode.Markdown);
-                            return Ok();
                         }
 
-                        // Chỉ xử lý các lệnh cụ thể, các tin nhắn khác mặc định là câu hỏi
-                        string responseMessage = await (messageText switch
+                        // Đảm bảo gửi phản hồi cho các lệnh khác (trừ /h)
+                        if (!string.IsNullOrEmpty(responseMessage))
                         {
-                            "/h" => GetHelpMessage(chatId, cancellationToken),
-                            "/s" => GetSettingsMessage(chatId, cancellationToken),
-                            "/find" => HandleFilterCommand(chatId, cancellationToken),
-                            "/f" => StartFeedbackProcess(chatId, cancellationToken),
-                            "/p" => Task.FromResult("🏆 Your Achievement Points"),
-                            _ => Task.FromResult("Thank you")
-                        }) ?? "Thank you";
-
-                        if (messageText != "/h" && messageText != "/f" && messageText != "/s" && !string.IsNullOrEmpty(responseMessage))
-                        {
-                            _logger.LogInformation("Sending response: {ResponseMessage} to chat {ChatId}", responseMessage, chatId);
+                            _logger.LogInformation("Sending response: {ResponseMessage} to chat {ChatId} for UpdateId {UpdateId}", responseMessage, chatId, updateId);
                             await _botClient.SendTextMessageAsync(chatId, responseMessage, cancellationToken: cancellationToken);
                         }
                     }
@@ -144,13 +177,16 @@ namespace ChatBot.API.Controllers
                     await HandleCallbackQuery(update.CallbackQuery, cancellationToken);
                 }
 
-                return Ok();
+                // Đánh dấu bản cập nhật đã xử lý
+                _processedUpdateIds.Add(updateId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error handling webhook update for chat {ChatId}", chatId);
+                _logger.LogError(ex, "Error handling webhook update for chat {ChatId} with UpdateId {UpdateId}", chatId, update.Id);
                 return StatusCode(500, "Internal server error");
             }
+
+            return Ok();
         }
 
         #region Settings Process
@@ -170,13 +206,13 @@ namespace ChatBot.API.Controllers
                 var role = await unitOfWork.roleReponsitory.GetAsync(user.Roleid ?? 0);
                 var roleName = role?.Rolename ?? "User";
 
-                var settingsMessage = "👤Account Information:\n\n" +
-                                     $" - Username: {user.Username ?? "Not set"}\n" +
-                                     $" - Telegram code: {user.Telegramid}\n" +
-                                     $" - Join date: {user.Joindate?.ToString("dd/MM/yyyy") ?? "N/A"}\n" +
-                                     $" - Status: {(user.Isactive == true ? "Active" : "Inactive")}\n" +
-                                     $" - Role: {roleName}\n" +
-                                     $" - Onchain ID: {user.Onchainid ?? "Not set"}\n\n" +
+                var settingsMessage = "👤*Account Information:*\n\n" +
+                                     $" - Username: *{user.Username ?? "Not set"}*\n" +
+                                     $" - Telegram code: *{user.Telegramid}*\n" +
+                                     $" - Join date: *{user.Joindate?.ToString("dd/MM/yyyy") ?? "N/A"}*\n" +
+                                     $" - Status: *{(user.Isactive == true ? "Active" : "Inactive")}*\n" +
+                                     $" - Role: *{roleName}*\n" +
+                                     $" - Onchain ID: *{user.Onchainid ?? "Not set"}*\n\n" +
                                      "You can update your Onchain Id and participation role by selecting the edit buttons below.\n";
 
                 var inlineKeyboard = new InlineKeyboardMarkup(new[]
@@ -184,7 +220,7 @@ namespace ChatBot.API.Controllers
                     new[] { InlineKeyboardButton.WithCallbackData("🐙 Onchain ID", "update_onchain"), InlineKeyboardButton.WithCallbackData("🐙Role", "update_role") }
                 });
 
-                await _botClient.SendTextMessageAsync(chatId, settingsMessage, replyMarkup: inlineKeyboard, cancellationToken: cancellationToken);
+                await _botClient.SendTextMessageAsync(chatId, settingsMessage, replyMarkup: inlineKeyboard, cancellationToken: cancellationToken, parseMode: ParseMode.Markdown);
                 return string.Empty;
             }
             catch (Exception ex)
@@ -222,7 +258,7 @@ namespace ChatBot.API.Controllers
                     {
                         _feedbackState.Remove(chatId);
                     }
-                    await _botClient.SendTextMessageAsync(chatId, "🐳 Onchain ID updated successfully!\n 🐳Use /s to view your updated information.", cancellationToken: cancellationToken);
+                    await _botClient.SendTextMessageAsync(chatId, "🐳 *Onchain ID updated successfully!*\n 🐳Use */s* to view your updated information.", cancellationToken: cancellationToken);
                 }
                 return string.Empty;
             }
@@ -261,7 +297,7 @@ namespace ChatBot.API.Controllers
                     await unitOfWork.userReponsitory.UpdateEntity(user);
                     await unitOfWork.CompleteAsync();
 
-                    await _botClient.SendTextMessageAsync(chatId, "🐳 Role updated successfully!\n🐳Use /s to view your updated information.", cancellationToken: cancellationToken);
+                    await _botClient.SendTextMessageAsync(chatId, "🐳 *Role updated successfully!*\n🐳 Use */s* to view your updated information.", cancellationToken: cancellationToken, parseMode: ParseMode.Markdown);
                 }
                 return string.Empty;
             }
@@ -275,59 +311,6 @@ namespace ChatBot.API.Controllers
         #endregion
 
         #region Feedback Process
-        private async Task<string> StartFeedbackProcess(long chatId, CancellationToken cancellationToken)
-        {
-            lock (_feedbackState)
-            {
-                _feedbackState[chatId] = ("awaiting_comment", string.Empty);
-            }
-            await _botClient.SendTextMessageAsync(chatId, "💻 Please enter your feedback:", cancellationToken: cancellationToken);
-            return string.Empty;
-        }
-
-        private async Task<string> SendRatingButtons(long chatId, CancellationToken cancellationToken)
-        {
-            var ratingKeyboard = new InlineKeyboardMarkup(new[]
-            {
-                new[] { InlineKeyboardButton.WithCallbackData("1️⃣", "rate_1"), InlineKeyboardButton.WithCallbackData("2️⃣", "rate_2"), InlineKeyboardButton.WithCallbackData("3️⃣", "rate_3") },
-                new[] { InlineKeyboardButton.WithCallbackData("4️⃣", "rate_4"), InlineKeyboardButton.WithCallbackData("5️⃣", "rate_5"), InlineKeyboardButton.WithCallbackData("⏭️", "rate_6") }
-            });
-
-            var messageText = "\n🌟Please select your satisfaction level:\n\n" +
-                             "⛈️ Option 1 ➡️ Dissatisfied\n" +
-                             "🌧️ Option 2 ➡️ Slightly disappointed\n" +
-                             "🌱 Option 3 ➡️ Average\n" +
-                             "🔥 Option 4 ➡️ Satisfied\n" +
-                             "🌈 Option 5 ➡️ Very satisfied\n" +
-                             "🌊 Option 6 ➡️ Skip\n\n" +
-                             "Please select one of the options below to let us know your opinion about your chatbot experience!";
-
-            await _botClient.SendTextMessageAsync(chatId, messageText, replyMarkup: ratingKeyboard, cancellationToken: cancellationToken);
-            return string.Empty;
-        }
-
-        private async Task<string> HandleFeedbackRating(CallbackQuery callbackQuery, CancellationToken cancellationToken)
-        {
-            var chatId = callbackQuery.Message.Chat.Id;
-            var callbackData = callbackQuery.Data;
-
-            if (_feedbackState.ContainsKey(chatId) && _feedbackState[chatId].State == "awaiting_rating" && callbackData.StartsWith("rate_"))
-            {
-                int rating = int.Parse(callbackData.Split('_')[1]);
-                string comment = _feedbackState.ContainsKey(chatId) ? _feedbackState[chatId].Comment : string.Empty;
-
-                await SaveFeedback(chatId, rating, comment, cancellationToken);
-                lock (_feedbackState)
-                {
-                    _feedbackState.Remove(chatId);
-                }
-
-                await _botClient.SendTextMessageAsync(chatId, "Thank you for your feedback! 💖", cancellationToken: cancellationToken);
-                await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id, cancellationToken: cancellationToken);
-            }
-            return string.Empty;
-        }
-
         private async Task<string> SaveFeedback(long telegramId, int rating, string comment, CancellationToken cancellationToken)
         {
             try
@@ -338,14 +321,13 @@ namespace ChatBot.API.Controllers
                 var feedback = new BboFeedback
                 {
                     Userid = (int)telegramId,
-                    Rating = rating,
                     Comment = string.IsNullOrEmpty(comment) ? "No comment provided" : comment,
                     Createdat = DateTime.Now
                 };
 
                 await unitOfWork.feedbackReponsitory.AddEntity(feedback);
                 await unitOfWork.CompleteAsync();
-                _logger.LogInformation("Feedback saved for Telegram ID: {TelegramId}, Rating: {Rating}, Comment: {Comment}", telegramId, rating, comment);
+                _logger.LogInformation("Feedback saved for Telegram ID: {TelegramId}, Comment: {Comment}", telegramId, comment);
                 return string.Empty;
             }
             catch (Exception ex)
@@ -382,11 +364,11 @@ namespace ChatBot.API.Controllers
                     }
 
                     var pageQuestions = questions.Skip((page - 1) * itemsPerPage).Take(itemsPerPage).ToList();
-                    var messageText = new StringBuilder("🌟 **List of suggested questions**\n\n");
+                    var messageText = new StringBuilder("🌟 *List of suggested questions*\n\n");
                     int startIndex = (page - 1) * itemsPerPage + 1;
                     foreach (var (question, index) in pageQuestions.Select((q, i) => (q, i + startIndex)))
                     {
-                        messageText.AppendLine($"{index}. {question.Question}");
+                        messageText.AppendLine($"*{index}.* _{question.Question}_");
                     }
                     messageText.AppendLine($"\nPage {page}/{totalPages}");
 
@@ -444,27 +426,29 @@ namespace ChatBot.API.Controllers
         private async Task<string> GetHelpMessage(long chatId, CancellationToken cancellationToken)
         {
             var helpMessage =
-                "🌟 Please select an option:\n\n" +
-                "👤 - Settings: Account Settings\n" +
-                "💡 - Filters: Recommended Questions\n" +
-                "📝 - Feedback: Submit Feedback\n" +
-                "🏆 - Score: View Achievements\n\n" +
+                "🌟 *Please select an option:*\n\n" +
+                "👤 - *Settings*: _Account Settings_\n" +
+                "💡 - *Filters*: _Recommended Questions_\n" +
+                "📝 - *Feedback*: _Submit Feedback_\n" +
+                "🏆 - *Score*: _View Achievements_\n\n" +
                 "Or you can use the following commands:\n\n" +
-                "❓/h - Show available commands\n" +
-                "👤/s - Account settings\n" +
-                "💡/find - Recommended questions\n" +
-                "📝/f - Send feedback\n" +
-                "🏆/p - View achievements\n\n" +
-                "You can join our community group at: [Cardano_ECO_VN](https://t.me/Cardano_ECO_VN)";
+                "❓ */h* - _Show available commands_\n" +
+                "👤 */s* - _Account settings_\n" +
+                "💡 */find* - _Recommended questions_\n" +
+                "📝 */f* - _Send feedback_\n" +
+                "🏆 */p* - _View achievements_\n\n" +
+                "You can join our community group at: *[Cardano_ECO_VN](https://t.me/Cardano_ECO_VN)*";
 
-            var inlineKeyboard = new InlineKeyboardMarkup(new[]
+            return helpMessage; // Chỉ trả về nội dung, không gửi tin nhắn
+        }
+
+        private InlineKeyboardMarkup GetHelpInlineKeyboard()
+        {
+            return new InlineKeyboardMarkup(new[]
             {
                 new[] { InlineKeyboardButton.WithCallbackData("👤 Settings", "settings"), InlineKeyboardButton.WithCallbackData("💡 Filter", "filter") },
                 new[] { InlineKeyboardButton.WithCallbackData("📝 Feedback", "feedback"), InlineKeyboardButton.WithCallbackData("🏆 Point", "point") }
             });
-
-            await _botClient.SendTextMessageAsync(chatId, helpMessage, replyMarkup: inlineKeyboard, cancellationToken: cancellationToken);
-            return helpMessage;
         }
         #endregion
 
@@ -478,12 +462,11 @@ namespace ChatBot.API.Controllers
             {
                 "settings" => GetSettingsMessage(chatId, cancellationToken),
                 "filter" => HandleFilterCommand(chatId, cancellationToken),
-                "feedback" => StartFeedbackProcess(chatId, cancellationToken),
+                "feedback" => Task.FromResult("Please provide feedback with the command. Example: /f This is my feedback"),
                 "point" => Task.FromResult("🏆 Your Achievement Points"),
                 "update_onchain" => StartUpdateOnchainProcess(chatId, cancellationToken),
                 "update_role" => StartUpdateRoleProcess(chatId, cancellationToken),
                 var data when data.StartsWith("role_") => UpdateRole(chatId, int.Parse(data.Split('_')[1]), cancellationToken),
-                var data when data.StartsWith("rate_") => HandleFeedbackRating(callbackQuery, cancellationToken),
                 var data when data.StartsWith("filter_page_") => HandleFilterCommand(chatId, cancellationToken, int.Parse(data.Split('_')[2])),
                 var data when data.StartsWith("filter_question_") => HandleFilterQuestionSelection(chatId, int.Parse(data.Split('_')[2]), cancellationToken),
                 _ => Task.FromResult("Invalid option")
@@ -491,15 +474,8 @@ namespace ChatBot.API.Controllers
 
             var response = await responseTask;
 
-            if (callbackData != "feedback" &&
-                !callbackData.StartsWith("rate_") &&
-                callbackData != "settings" &&
-                callbackData != "update_onchain" &&
-                callbackData != "update_role" &&
-                !callbackData.StartsWith("role_") &&
-                callbackData != "filter" &&
-                !callbackData.StartsWith("filter_page_") &&
-                !callbackData.StartsWith("filter_question_"))
+            // Đảm bảo gửi phản hồi khi callbackData là "feedback"
+            if (!string.IsNullOrEmpty(response))
             {
                 await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id, cancellationToken: cancellationToken);
                 await _botClient.SendTextMessageAsync(chatId, response, cancellationToken: cancellationToken);
