@@ -122,7 +122,7 @@ namespace ChatBot.API.Controllers
                                         "💡 */find* - _Recommended questions_\n" +
                                         "📝 */f* - _Send feedback_\n" +
                                         "🏆 */p* - _View achievements_\n\n" +
-                                        "You can join our community group at: *[Cardano_ECO_VN](https://t.me/Cardano_ECO_VN)*";
+                                        "You can join our community group at: [Cardano_ECO_VN](https://t.me/Cardano_ECO_VN)";
 
                                     await _botClient.SendTextMessageAsync(chatId, welcomeMessage, replyMarkup: inlineKeyboard, cancellationToken: cancellationToken, parseMode: ParseMode.Markdown);
                                     break;
@@ -437,7 +437,7 @@ namespace ChatBot.API.Controllers
                 "💡 */find* - _Recommended questions_\n" +
                 "📝 */f* - _Send feedback_\n" +
                 "🏆 */p* - _View achievements_\n\n" +
-                "You can join our community group at: *[Cardano_ECO_VN](https://t.me/Cardano_ECO_VN)*";
+                "You can join our community group at: [Cardano_ECO_VN](https://t.me/Cardano_ECO_VN)";
 
             return helpMessage; // Chỉ trả về nội dung, không gửi tin nhắn
         }
