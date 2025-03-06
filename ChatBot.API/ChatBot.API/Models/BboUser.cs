@@ -25,6 +25,8 @@ public partial class BboUser
 
     public string? Onchainid { get; set; }
 
+    public string? Language { get; set; }
+
     public virtual ICollection<BboChathistory> BboChathistories { get; set; } = new List<BboChathistory>();
 
     public virtual ICollection<BboChathistoryBk> BboChathistoryBks { get; set; } = new List<BboChathistoryBk>();

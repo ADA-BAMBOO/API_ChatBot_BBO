@@ -2,18 +2,18 @@
 using ChatBot.API.Interface;
 using ChatBot.API.Models;
 using ChatBot.API.Reponsitory;
-//using ChatBot.API.Handle;
+using ChatBot.API.Handle;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using Telegram.Bot;
 
-
 var builder = WebApplication.CreateBuilder(args);
 
-// ?? C?u hình JSON cho controllers
+// Cấu hình JSON cho controllers
 builder.Services
     .AddControllers()
-    .AddNewtonsoftJson(options => {
+    .AddNewtonsoftJson(options =>
+    {
         options.SerializerSettings.NullValueHandling = NullValueHandling.Ignore;
         options.SerializerSettings.DateFormatHandling = Newtonsoft.Json.DateFormatHandling.IsoDateFormat;
         options.SerializerSettings.DateTimeZoneHandling = Newtonsoft.Json.DateTimeZoneHandling.Utc;
@@ -21,30 +21,30 @@ builder.Services
 
 builder.Services.AddControllers();
 
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// Cấu hình Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ?? Cấu hình database (PostgreSQL ho?c khác)
+// Cấu hình database (PostgreSQL hoặc khác)
 builder.Services.AddDbContext<YourDbContext>(
     options => options.UseNpgsql(builder.Configuration.GetConnectionString("dbConnection"))
-    );
+);
 
 // Cấu hình UnitOfWork cho Repository Pattern
 builder.Services.AddScoped<IUnitOfWork, UnitOfWorkReponsitory>();
 
-// Đănng ký TelegramBotClient t? appsettings.json
+// Đăng ký TelegramBotClient từ appsettings.json
 builder.Services.AddSingleton<ITelegramBotClient>(sp =>
     new TelegramBotClient(builder.Configuration["TelegramBot:Token"]));
 
 // Thêm logging
 builder.Logging.AddConsole();
 
-// Đăng ký BotController (thay vì HostedService MyBot)
+// Đăng ký BotController
 builder.Services.AddScoped<BotController>();
 
-// Add the bot as a hosted service
-//builder.Services.AddHostedService<MyBot>();
+// Đăng ký BotCommandHandler
+builder.Services.AddScoped<BotCommandHandler>();
 
 var app = builder.Build();
 
@@ -56,17 +56,25 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UseAuthorization();
-
 app.MapControllers();
 
-// Đặt webhook khi ứng dụng khởi động
+// Đặt webhook và cập nhật lệnh bot khi ứng dụng khởi động
 app.Lifetime.ApplicationStarted.Register(async () =>
 {
-    var botClient = app.Services.GetRequiredService<ITelegramBotClient>();
-    var webhookUrl = builder.Configuration["Webhook:Url"] ?? "https://661f-171-254-208-205.ngrok-free.app/api/bot"; // Thay bằng URL công khai của bạn
-    await botClient.SetWebhookAsync(webhookUrl);
+    using (var scope = app.Services.CreateScope())
+    {
+        var botClient = scope.ServiceProvider.GetRequiredService<ITelegramBotClient>();
+        var botCommandHandler = scope.ServiceProvider.GetRequiredService<BotCommandHandler>();
+        var cancellationTokenSource = new CancellationTokenSource();
+
+        // Đặt webhook
+        var webhookUrl = builder.Configuration["Webhook:Url"] ?? "https://2aa9-171-227-32-223.ngrok-free.app/api/bot";
+        await botClient.SetWebhookAsync(webhookUrl);
+
+        // Cập nhật lệnh bot
+        await botCommandHandler.SetBotCommandsAsync(cancellationTokenSource.Token);
+    }
 });
 
 app.Run();

@@ -232,6 +232,9 @@ public partial class YourDbContext : DbContext
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("joindate");
+            entity.Property(e => e.Language)
+                .HasMaxLength(10)
+                .HasColumnName("language");
             entity.Property(e => e.Lastactive)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("lastactive");

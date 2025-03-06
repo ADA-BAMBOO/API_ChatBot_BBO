@@ -15,6 +15,9 @@ using Microsoft.Extensions.Logging;
 using System.Threading;
 using System; // Thêm để sử dụng HashSet
 using System.Diagnostics;
+using Google.Cloud.Translation.V2;
+using Microsoft.Extensions.Configuration;
+using ChatBot.API.Helpers;
 
 namespace ChatBot.API.Controllers
 {
@@ -84,6 +87,7 @@ namespace ChatBot.API.Controllers
                             {
                                 case "/start":
                                     var existingUser = await unitOfWork.userReponsitory.GetFirstOrDefaultAsync((int)chatId);
+                                    string userLanguage = existingUser?.Language ?? "en";
 
                                     if (existingUser == null)
                                     {
@@ -94,6 +98,7 @@ namespace ChatBot.API.Controllers
                                             Joindate = DateTime.Now,
                                             Lastactive = DateTime.Now,
                                             Isactive = true,
+                                            Language = "en",
                                             Roleid = 3 // Default role is User
                                         };
 
@@ -103,35 +108,28 @@ namespace ChatBot.API.Controllers
                                     }
 
                                     var inlineKeyboard = new InlineKeyboardMarkup(new[]
-                                    {
-                                        new[] { InlineKeyboardButton.WithCallbackData("👤 Settings", "settings"), InlineKeyboardButton.WithCallbackData("💡 Filter", "filter") },
-                                        new[] { InlineKeyboardButton.WithCallbackData("📝 Feedback", "feedback"), InlineKeyboardButton.WithCallbackData("🏆 Point", "point") }
-                                    });
+                                      {
+                                         new[] 
+                                         { 
+                                             InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "SettingsButton"), "settings"),            InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage,"FilterButton"),  "filter") 
+                                         },
+                                         new[] 
+                                         { 
+                                             InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "FeedbackButton"), "feedback"),            InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage,"PointButton"),   "point") 
+                                         }
+                                     });
 
                                     string username = update.Message.From?.Username ?? "User";
-                                    var welcomeMessage =
-                                        $"Hi *{username}*, Welcome to *GovernCardanoBot*!\n\n" +
-                                        "📖 *GovernCardanoBot* is an intelligent virtual assistant powered by ChatGPT, designed to answer questions related to the Cardano blockchain and its governance activities.\n\n" +
-                                        "🌟 *Please select an option:*\n\n" +
-                                        "👤 - *Settings*: _Account Settings_\n" +
-                                        "💡 - *Filters*: _Recommended Questions_\n" +
-                                        "📝 - *Feedback*: _Submit Feedback_\n" +
-                                        "🏆 - *Score*: _View Achievements_\n\n" +
-                                        "Or you can use the following commands:\n\n" +
-                                        "❓ */h* - _Show available commands_\n" +
-                                        "👤 */s* - _Account settings_\n" +
-                                        "💡 */find* - _Recommended questions_\n" +
-                                        "📝 */f* - _Send feedback_\n" +
-                                        "🏆 */p* - _View achievements_\n\n" +
-                                        "You can join our community group at: [Cardano_ECO_VN](https://t.me/Cardano_ECO_VN)";
+
+                                    var welcomeMessage = LanguageResource.GetTranslation(userLanguage, "WelcomeMessage", username);
 
                                     await _botClient.SendTextMessageAsync(chatId, welcomeMessage, replyMarkup: inlineKeyboard, cancellationToken: cancellationToken, parseMode: ParseMode.Markdown);
                                     break;
 
                                 case "/h":
-                                    var helpMessage = await GetHelpMessage(chatId, cancellationToken); // Chỉ lấy nội dung
-                                    responseMessage = null; // Không cần gán lại để tránh gửi lần nữa
-                                    await _botClient.SendTextMessageAsync(chatId, helpMessage, replyMarkup: GetHelpInlineKeyboard(), cancellationToken: cancellationToken, parseMode: ParseMode.Markdown);
+                                    var helpMessage = await GetHelpMessage(chatId, cancellationToken);
+                                    var helpKeyboard = await GetHelpInlineKeyboard(chatId, cancellationToken); // Cập nhật lời gọi
+                                    await _botClient.SendTextMessageAsync(chatId, helpMessage, replyMarkup: helpKeyboard, cancellationToken: cancellationToken, parseMode: ParseMode.Markdown);
                                     break;
 
                                 case "/s":
@@ -148,15 +146,21 @@ namespace ChatBot.API.Controllers
 
                                 case "/f":
                                     string feedback = string.Join(" ", messageText.Split(' ').Skip(1)); // Lấy phần còn lại sau "/f"
+                                    userLanguage = (await unitOfWork.userReponsitory.GetFirstOrDefaultAsync((int)chatId))?.Language ?? "en";
                                     if (string.IsNullOrWhiteSpace(feedback))
                                     {
-                                        responseMessage = "Please provide feedback with the command. Example: /f This is my feedback";
+                                        responseMessage = LanguageResource.GetTranslation(userLanguage, "FeedbackPrompt");
                                     }
                                     else
                                     {
-                                        await SaveFeedback(chatId, 0, feedback, cancellationToken); // Lưu feedback mà không cần rating
-                                        responseMessage = "Thank you for your feedback! 💖";
+                                        await SaveFeedback(chatId, 0, feedback, cancellationToken);
+                                        responseMessage = LanguageResource.GetTranslation(userLanguage, "FeedbackThanks");
                                     }
+                                    break;
+
+                                case "/la":
+                                    await ShowLanguageOptions(chatId, cancellationToken);
+                                    responseMessage = string.Empty; // Không gửi thêm tin nhắn ngoài inline keyboard
                                     break;
 
                                 default:
@@ -191,6 +195,57 @@ namespace ChatBot.API.Controllers
             return Ok();
         }
 
+        #region Language Process
+        private async Task ShowLanguageOptions(long chatId, CancellationToken cancellationToken)
+        {
+            var (_, userLanguage) = await GetUserLanguageAsync(chatId, cancellationToken);
+
+            var languageKeyboard = new InlineKeyboardMarkup(new[]
+            {
+            new[]{
+                InlineKeyboardButton.WithCallbackData("🇻🇳 VI", "lang_vi"),
+                InlineKeyboardButton.WithCallbackData("🇬🇧 EN", "lang_en")}
+            });
+
+            await _botClient.SendTextMessageAsync(
+                chatId,
+                LanguageResource.GetTranslation(userLanguage, "LanguagePrompt"),
+                replyMarkup: languageKeyboard,
+                cancellationToken: cancellationToken
+            );
+        }
+
+        private async Task<string> UpdateUserLanguage(long chatId, string language, CancellationToken cancellationToken)
+        {
+            try
+            {
+                using var scope = _serviceScopeFactory.CreateScope();
+                var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+                var user = await unitOfWork.userReponsitory.GetFirstOrDefaultAsync((int)chatId);
+
+                if (user == null)
+                {
+                    return LanguageResource.GetTranslation("en", "NoUser");
+                }
+
+                user.Language = language;
+                await unitOfWork.userReponsitory.UpdateEntity(user);
+                await unitOfWork.CompleteAsync();
+
+                var message = LanguageResource.GetTranslation(language, "LanguageUpdated");
+                await _botClient.SendTextMessageAsync(chatId, message, cancellationToken: cancellationToken);
+                return string.Empty;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating language for Telegram ID: {TelegramId}", chatId);
+                return language == "vi"
+                    ? "Lỗi khi cập nhật ngôn ngữ. Vui lòng thử lại."
+                    : "Error updating language. Please try again.";
+            }
+        }
+        #endregion
+
         #region Settings Process
         private async Task<string> GetSettingsMessage(long chatId, CancellationToken cancellationToken)
         {
@@ -202,24 +257,27 @@ namespace ChatBot.API.Controllers
 
                 if (user == null)
                 {
-                    return "User not found. Please use /start to register.";
+                    return LanguageResource.GetTranslation("en", "NoUser");
                 }
 
                 var role = await unitOfWork.roleReponsitory.GetAsync(user.Roleid ?? 0);
                 var roleName = role?.Rolename ?? "User";
+                var userLanguage = user.Language ?? "en";
 
-                var settingsMessage = "👤*Account Information:*\n\n" +
-                                     $" - Username: *{user.Username ?? "Not set"}*\n" +
-                                     $" - Telegram code: *{user.Telegramid}*\n" +
-                                     $" - Join date: *{user.Joindate?.ToString("dd/MM/yyyy") ?? "N/A"}*\n" +
-                                     $" - Status: *{(user.Isactive == true ? "Active" : "Inactive")}*\n" +
-                                     $" - Role: *{roleName}*\n" +
-                                     $" - Onchain ID: *{user.Onchainid ?? "Not set"}*\n\n" +
-                                     "You can update your Onchain Id and participation role by selecting the edit buttons below.\n";
+                var settingsMessage = LanguageResource.GetTranslation(userLanguage, "SettingsMessage",
+                                      user.Username ?? "Not set",
+                                      user.Telegramid,
+                                      user.Joindate?.ToString("dd/MM/yyyy") ?? "N/A",
+                                      user.Isactive == true ? "Active" : "Inactive",
+                                      roleName,
+                                      user.Onchainid ?? "Not set");
 
                 var inlineKeyboard = new InlineKeyboardMarkup(new[]
                 {
-                    new[] { InlineKeyboardButton.WithCallbackData("🐙 Onchain ID", "update_onchain"), InlineKeyboardButton.WithCallbackData("🐙Role", "update_role") }
+                    new[] 
+                    { 
+                        InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "OnchainIdButton"), "update_onchain"), InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "RoleButton"), "update_role") 
+                    }
                 });
 
                 await _botClient.SendTextMessageAsync(chatId, settingsMessage, replyMarkup: inlineKeyboard, cancellationToken: cancellationToken, parseMode: ParseMode.Markdown);
@@ -228,17 +286,18 @@ namespace ChatBot.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching settings for Telegram ID: {TelegramId}", chatId);
-                return "Error retrieving your account information.";
+                return LanguageResource.GetTranslation("en", "AIError");
             }
         }
 
         private async Task<string> StartUpdateOnchainProcess(long chatId, CancellationToken cancellationToken)
         {
+            var (_, userLanguage) = await GetUserLanguageAsync(chatId, cancellationToken);
             lock (_feedbackState)
             {
                 _feedbackState[chatId] = ("awaiting_onchainid", string.Empty);
             }
-            await _botClient.SendTextMessageAsync(chatId, "💻 Please enter your new Onchain ID:", cancellationToken: cancellationToken);
+            await _botClient.SendTextMessageAsync(chatId, LanguageResource.GetTranslation(userLanguage, "OnchainIdPrompt"), cancellationToken: cancellationToken);
             return string.Empty;
         }
 
@@ -249,6 +308,7 @@ namespace ChatBot.API.Controllers
                 using var scope = _serviceScopeFactory.CreateScope();
                 var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
                 var user = await unitOfWork.userReponsitory.GetFirstOrDefaultAsync((int)chatId);
+                var userLanguage = user?.Language ?? "en";
 
                 if (user != null)
                 {
@@ -260,7 +320,7 @@ namespace ChatBot.API.Controllers
                     {
                         _feedbackState.Remove(chatId);
                     }
-                    await _botClient.SendTextMessageAsync(chatId, "🐳 *Onchain ID updated successfully!*\n 🐳Use */s* to view your updated information.", cancellationToken: cancellationToken);
+                    await _botClient.SendTextMessageAsync(chatId, LanguageResource.GetTranslation(userLanguage, "OnchainIdSuccess"), cancellationToken: cancellationToken);
                 }
                 return string.Empty;
             }
@@ -274,6 +334,10 @@ namespace ChatBot.API.Controllers
 
         private async Task<string> StartUpdateRoleProcess(long chatId, CancellationToken cancellationToken)
         {
+            using var scope = _serviceScopeFactory.CreateScope();
+            var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            var user = await unitOfWork.userReponsitory.GetFirstOrDefaultAsync((int)chatId);
+            var userLanguage = user?.Language ?? "en";
             var roleKeyboard = new InlineKeyboardMarkup(new[]
             {
                 new[] { InlineKeyboardButton.WithCallbackData("🧑‍🏫Drep", "role_2"), InlineKeyboardButton.WithCallbackData("🧑‍💼User", "role_3") },
@@ -281,7 +345,7 @@ namespace ChatBot.API.Controllers
                 new[] { InlineKeyboardButton.WithCallbackData("🧑‍⚖️Committee", "role_6") }
             });
 
-            await _botClient.SendTextMessageAsync(chatId, "💻 Please select your new role:", replyMarkup: roleKeyboard, cancellationToken: cancellationToken);
+            await _botClient.SendTextMessageAsync(chatId, LanguageResource.GetTranslation(userLanguage, "SelectNewRole"), replyMarkup: roleKeyboard, cancellationToken: cancellationToken);
             return string.Empty;
         }
 
@@ -292,6 +356,7 @@ namespace ChatBot.API.Controllers
                 using var scope = _serviceScopeFactory.CreateScope();
                 var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
                 var user = await unitOfWork.userReponsitory.GetFirstOrDefaultAsync((int)chatId);
+                var userLanguage = user?.Language ?? "en";
 
                 if (user != null)
                 {
@@ -299,7 +364,7 @@ namespace ChatBot.API.Controllers
                     await unitOfWork.userReponsitory.UpdateEntity(user);
                     await unitOfWork.CompleteAsync();
 
-                    await _botClient.SendTextMessageAsync(chatId, "🐳 *Role updated successfully!*\n🐳 Use */s* to view your updated information.", cancellationToken: cancellationToken, parseMode: ParseMode.Markdown);
+                    await _botClient.SendTextMessageAsync(chatId, LanguageResource.GetTranslation(userLanguage, "RoleSuccess"), cancellationToken: cancellationToken, parseMode: ParseMode.Markdown);
                 }
                 return string.Empty;
             }
@@ -427,29 +492,29 @@ namespace ChatBot.API.Controllers
         #region Gọi lệnh Help Message
         private async Task<string> GetHelpMessage(long chatId, CancellationToken cancellationToken)
         {
-            var helpMessage =
-                "🌟 *Please select an option:*\n\n" +
-                "👤 - *Settings*: _Account Settings_\n" +
-                "💡 - *Filters*: _Recommended Questions_\n" +
-                "📝 - *Feedback*: _Submit Feedback_\n" +
-                "🏆 - *Score*: _View Achievements_\n\n" +
-                "Or you can use the following commands:\n\n" +
-                "❓ */h* - _Show available commands_\n" +
-                "👤 */s* - _Account settings_\n" +
-                "💡 */find* - _Recommended questions_\n" +
-                "📝 */f* - _Send feedback_\n" +
-                "🏆 */p* - _View achievements_\n\n" +
-                "You can join our community group at: [Cardano_ECO_VN](https://t.me/Cardano_ECO_VN)";
+            var (_, userLanguage) = await GetUserLanguageAsync(chatId, cancellationToken);
 
-            return helpMessage; // Chỉ trả về nội dung, không gửi tin nhắn
+            // Lấy nội dung từ LanguageResource
+            return LanguageResource.GetTranslation(userLanguage, "HelpMessage");
         }
 
-        private InlineKeyboardMarkup GetHelpInlineKeyboard()
+        private async Task<InlineKeyboardMarkup> GetHelpInlineKeyboard(long chatId, CancellationToken cancellationToken)
         {
+
+            var (_, userLanguage) = await GetUserLanguageAsync(chatId, cancellationToken);
+
             return new InlineKeyboardMarkup(new[]
             {
-                new[] { InlineKeyboardButton.WithCallbackData("👤 Settings", "settings"), InlineKeyboardButton.WithCallbackData("💡 Filter", "filter") },
-                new[] { InlineKeyboardButton.WithCallbackData("📝 Feedback", "feedback"), InlineKeyboardButton.WithCallbackData("🏆 Point", "point") }
+              new[]
+              {
+                  InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "SettingsButton"), "settings"),
+                  InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "FilterButton"), "filter")
+              },
+              new[]
+              {
+                  InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "FeedbackButton"), "feedback"),
+                  InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "PointButton"), "point")
+              }
             });
         }
         #endregion
@@ -460,18 +525,22 @@ namespace ChatBot.API.Controllers
             var chatId = callbackQuery.Message.Chat.Id;
             var callbackData = callbackQuery.Data;
 
+            var (_, userLanguage) = await GetUserLanguageAsync(chatId, cancellationToken);
+
             var responseTask = callbackData switch
             {
                 "settings" => GetSettingsMessage(chatId, cancellationToken),
                 "filter" => HandleFilterCommand(chatId, cancellationToken),
-                "feedback" => Task.FromResult("Please provide feedback with the command. Example: /f This is my feedback"),
-                "point" => Task.FromResult("🏆 Your Achievement Points"),
+                "feedback" => Task.FromResult(LanguageResource.GetTranslation(userLanguage, "FeedbackPrompt")),
+                "point" => Task.FromResult(LanguageResource.GetTranslation(userLanguage, "PointMessage")),
                 "update_onchain" => StartUpdateOnchainProcess(chatId, cancellationToken),
                 "update_role" => StartUpdateRoleProcess(chatId, cancellationToken),
                 var data when data.StartsWith("role_") => UpdateRole(chatId, int.Parse(data.Split('_')[1]), cancellationToken),
                 var data when data.StartsWith("filter_page_") => HandleFilterCommand(chatId, cancellationToken, int.Parse(data.Split('_')[2])),
                 var data when data.StartsWith("filter_question_") => HandleFilterQuestionSelection(chatId, int.Parse(data.Split('_')[2]), cancellationToken),
-                _ => Task.FromResult("Invalid option")
+                "lang_vi" => UpdateUserLanguage(chatId, "vi", cancellationToken),
+                "lang_en" => UpdateUserLanguage(chatId, "en", cancellationToken),
+                _ => Task.FromResult(LanguageResource.GetTranslation(userLanguage, "InvalidOption"))
             };
 
             var response = await responseTask;
@@ -486,6 +555,18 @@ namespace ChatBot.API.Controllers
             {
                 await _botClient.AnswerCallbackQueryAsync(callbackQuery.Id, cancellationToken: cancellationToken);
             }
+        }
+        #endregion
+
+
+        #region GetUserLanguageAsync
+        private async Task<(BboUser? User, string Language)> GetUserLanguageAsync(long chatId, CancellationToken cancellationToken)
+        {
+            using var scope = _serviceScopeFactory.CreateScope();
+            var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            var user = await unitOfWork.userReponsitory.GetFirstOrDefaultAsync((int)chatId);
+            var userLanguage = user?.Language ?? "en";
+            return (user, userLanguage);
         }
         #endregion
 
