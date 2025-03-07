@@ -8,5 +8,6 @@ public interface IUnitOfWork
     IFeedbackReponsitory feedbackReponsitory { get; }
     IFilterReponsitory filterReponsitory { get; }
 
+    ICreditReponsitory creditReponsitory { get; }
     Task CompleteAsync();
 }

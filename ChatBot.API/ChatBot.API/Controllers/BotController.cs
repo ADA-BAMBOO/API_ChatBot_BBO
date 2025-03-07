@@ -116,7 +116,11 @@ namespace ChatBot.API.Controllers
                                          new[] 
                                          { 
                                              InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "FeedbackButton"), "feedback"),            InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage,"PointButton"),   "point") 
-                                         }
+                                         },
+                                        new[]
+                                        {
+                                            InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "LanguageButton"), "languages")
+                                        }
                                      });
 
                                     string username = update.Message.From?.Username ?? "User";
@@ -264,20 +268,30 @@ namespace ChatBot.API.Controllers
                 var roleName = role?.Rolename ?? "User";
                 var userLanguage = user.Language ?? "en";
 
+                // Ánh xạ mã ngôn ngữ sang tên đầy đủ
+                string languageDisplayName = userLanguage switch
+                {
+                    "en" => "English",
+                    "vi" => "Vietnamese",
+                    _ => userLanguage // Giữ nguyên nếu không khớp (fallback)
+                };
+
                 var settingsMessage = LanguageResource.GetTranslation(userLanguage, "SettingsMessage",
                                       user.Username ?? "Not set",
                                       user.Telegramid,
                                       user.Joindate?.ToString("dd/MM/yyyy") ?? "N/A",
                                       user.Isactive == true ? "Active" : "Inactive",
                                       roleName,
-                                      user.Onchainid ?? "Not set");
+                                      user.Onchainid ?? "Not set",
+                                     languageDisplayName);
 
                 var inlineKeyboard = new InlineKeyboardMarkup(new[]
                 {
                     new[] 
                     { 
                         InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "OnchainIdButton"), "update_onchain"), InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "RoleButton"), "update_role") 
-                    }
+                    },
+
                 });
 
                 await _botClient.SendTextMessageAsync(chatId, settingsMessage, replyMarkup: inlineKeyboard, cancellationToken: cancellationToken, parseMode: ParseMode.Markdown);
@@ -514,6 +528,10 @@ namespace ChatBot.API.Controllers
               {
                   InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "FeedbackButton"), "feedback"),
                   InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "PointButton"), "point")
+              },
+              new[]
+              {
+                  InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "LanguageButton"),"languages")
               }
             });
         }
@@ -538,8 +556,10 @@ namespace ChatBot.API.Controllers
                 var data when data.StartsWith("role_") => UpdateRole(chatId, int.Parse(data.Split('_')[1]), cancellationToken),
                 var data when data.StartsWith("filter_page_") => HandleFilterCommand(chatId, cancellationToken, int.Parse(data.Split('_')[2])),
                 var data when data.StartsWith("filter_question_") => HandleFilterQuestionSelection(chatId, int.Parse(data.Split('_')[2]), cancellationToken),
+
                 "lang_vi" => UpdateUserLanguage(chatId, "vi", cancellationToken),
                 "lang_en" => UpdateUserLanguage(chatId, "en", cancellationToken),
+                "languages" => ShowLanguageOptions(chatId, cancellationToken).ContinueWith(_ => string.Empty),
                 _ => Task.FromResult(LanguageResource.GetTranslation(userLanguage, "InvalidOption"))
             };
 

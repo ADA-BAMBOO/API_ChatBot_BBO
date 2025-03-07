@@ -12,7 +12,8 @@ public static class LanguageResource
                                 "👤 - *Settings*: _Account Settings_\n" +
                                 "💡 - *Filters*: _Recommended Questions_\n" +
                                 "📝 - *Feedback*: _Submit Feedback_\n" +
-                                "🏆 - *Score*: _View Achievements_\n\n" +
+                                "🏆 - *Score*: _View Achievements_\n" +
+                                "🌐 - *Language*: _Settings Language_\n\n" +
                                 "Or you can use the following commands:\n\n" +
                                 "❓ */h* - _Show available commands_\n" +
                                 "📖 */la* - _Settings language_\n" +
@@ -25,7 +26,8 @@ public static class LanguageResource
                               "👤 - *Settings*: _Account Settings_\n" +
                               "💡 - *Filters*: _Recommended Questions_\n" +
                               "📝 - *Feedback*: _Submit Feedback_\n" +
-                              "🏆 - *Score*: _View Achievements_\n\n" +
+                              "🏆 - *Score*: _View Achievements_\n" +
+                              "🌐 - *Language*: _Settings Language_\n\n" +
                               "Or you can use the following commands:\n\n" +
                               "❓ */h* - _Show available commands_\n" +
                               "📖 */la* - _Settings language_\n" +
@@ -38,13 +40,15 @@ public static class LanguageResource
             ["FilterButton"] = "💡 Filter",
             ["FeedbackButton"] = "📝 Feedback",
             ["PointButton"] = "🏆 Point",
+            ["LanguageButton"] = "🌐 Language",
             ["SettingsMessage"] = "👤*Account Information:*\n\n" +
                                   " - Username: *{0}*\n" +
                                   " - Telegram code: *{1}*\n" +
                                   " - Join date: *{2}*\n" +
                                   " - Status: *{3}*\n" +
                                   " - Role: *{4}*\n" +
-                                  " - Onchain ID: *{5}*\n\n" +
+                                  " - Onchain ID: *{5}*\n" +
+                                  " - Language: *{6}*\n\n" +
                                   "You can update your Onchain Id and participation role by selecting the edit buttons below.\n",
             ["OnchainIdButton"] = "🐙 Onchain ID",
             ["RoleButton"] = "🐙 Role",
@@ -70,6 +74,8 @@ public static class LanguageResource
             ["Command_F"] = "Send feedback",
             ["Command_P"] = "View achievements",
             ["Command_La"] = "Settings language"
+
+
         },
         ["vi"] = new Dictionary<string, string>
         {
@@ -79,7 +85,8 @@ public static class LanguageResource
                                 "👤 - *Cài đặt*: _Thiết lập tài khoản_\n" +
                                 "💡 - *Bộ lọc*: _Câu hỏi gợi ý_\n" +
                                 "📝 - *Phản hồi*: _Gửi đánh giá_\n" +
-                                "🏆 - *Điểm*: _Xem thành tích_\n\n" +
+                                "🏆 - *Điểm*: _Xem thành tích_\n" +
+                                "🌐 - *Ngôn ngữ*: _Thiết lập ngôn ngữ_\n\n" +
                                 "Hoặc bạn có thể sử dụng các lệnh sau:\n\n" +
                                 "❓ */h* - _Hiển thị các lệnh có sẵn_\n" +
                                 "📖 */la* - _Thiết lập ngôn ngữ_\n" +
@@ -92,7 +99,8 @@ public static class LanguageResource
                               "👤 - *Cài đặt*: _Thiết lập tài khoản_\n" +
                               "💡 - *Bộ lọc*: _Câu hỏi gợi ý_\n" +
                               "📝 - *Phản hồi*: _Gửi đánh giá_\n" +
-                              "🏆 - *Điểm*: _Xem thành tích_\n\n" +
+                              "🏆 - *Điểm*: _Xem thành tích_\n" +
+                              "🌐 - *Ngôn ngữ*: _Thiết lập ngôn ngữ_\n\n" +
                               "Hoặc bạn có thể sử dụng các lệnh sau:\n\n" +
                               "❓ */h* - _Hiển thị các lệnh có sẵn_\n" +
                               "📖 */la* - _Thiết lập ngôn ngữ_\n" +
@@ -105,20 +113,22 @@ public static class LanguageResource
             ["FilterButton"] = "💡 Bộ lọc",
             ["FeedbackButton"] = "📝 Phản hồi",
             ["PointButton"] = "🏆 Điểm",
+            ["LanguageButton"] = "🌐 Ngôn ngữ",
             ["SettingsMessage"] = "👤*Thông tin tài khoản:*\n\n" +
                                   " - Tên người dùng: *{0}*\n" +
                                   " - Mã Telegram: *{1}*\n" +
                                   " - Ngày tham gia: *{2}*\n" +
                                   " - Trạng thái: *{3}*\n" +
                                   " - Vai trò: *{4}*\n" +
-                                  " - Onchain ID: *{5}*\n\n" +
+                                  " - Onchain ID: *{5}*\n" +
+                                  " - Ngôn ngữ sử dụng: *{6}*\n\n" +
                                   "Bạn có thể cập nhật Onchain ID và vai trò tham gia bằng cách chọn các nút chỉnh sửa bên dưới.\n",
             ["OnchainIdButton"] = "🐙 Onchain ID",
             ["RoleButton"] = "🐙 Vai trò",
-            ["LanguagePrompt"] = "Vui lòng chọn ngôn ngữ của bạn:",
+            ["LanguagePrompt"] = "Vui lòng chọn ngôn ngữ bạn sử dụng:",
             ["LanguageUpdated"] = "🌟 Ngôn ngữ đã được chuyển sang tiếng Việt!",
             ["LanguageError"] = "Lỗi khi cập nhật ngôn ngữ. Vui lòng thử lại.",
-            ["FeedbackPrompt"] = "Vui lòng cung cấp phản hồi bằng lệnh. Ví dụ: /f Đây là phản hồi của tôi",
+            ["FeedbackPrompt"] = "Vui lòng cung cấp phản hồi bằng lệnh. Ví dụ: /f Đây là đánh giá của tôi",
             ["FeedbackThanks"] = "Cảm ơn bạn đã gửi phản hồi! 💖",
             ["PointMessage"] = "🏆 Điểm thành tích của bạn",
             ["NoUser"] = "Không tìm thấy người dùng. Vui lòng dùng /start để đăng ký.",
