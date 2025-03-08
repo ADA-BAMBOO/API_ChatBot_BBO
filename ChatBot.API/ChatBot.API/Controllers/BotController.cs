@@ -18,6 +18,7 @@ using System.Diagnostics;
 using Google.Cloud.Translation.V2;
 using Microsoft.Extensions.Configuration;
 using ChatBot.API.Helpers;
+using ChatBot.API.Handle;
 
 namespace ChatBot.API.Controllers
 {
@@ -597,6 +598,7 @@ namespace ChatBot.API.Controllers
             {
                 using var scope = _serviceScopeFactory.CreateScope();
                 var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+                var translateService = scope.ServiceProvider.GetRequiredService<GoogleTranslateService>();
                 var httpClient = new HttpClient();
 
                 // 1. Lấy lịch sử trò chuyện (5 bản ghi gần nhất)
@@ -606,38 +608,39 @@ namespace ChatBot.API.Controllers
                      .Take(5);
 
                 // Log chi tiết từng bản ghi trong chatHistory
-                if (chatHistory.Any())
-                {
-                    foreach (var history in chatHistory)
-                    {
-                        _logger.LogInformation("Chat history for chatId {ChatId}: Message = {Message}, Response = {Response}, SentAt = {SentAt}",
-                            chatId, history.Message, history.Response ?? "No response", history.Sentat);
-                    }
-                }
-                else
-                {
-                    _logger.LogInformation("No chat history found for chatId {ChatId}", chatId);
-                }
-                // 2. Chuẩn bị mảng messages cho JSON
+                //if (chatHistory.Any())
+                //{
+                //    foreach (var history in chatHistory)
+                //    {
+                //        _logger.LogInformation("Chat history for chatId {ChatId}: Message = {Message}, Response = {Response}, SentAt = {SentAt}",
+                //            chatId, history.Message, history.Response ?? "No response", history.Sentat);
+                //    }
+                //}
+                //else
+                //{
+                //    _logger.LogInformation("No chat history found for chatId {ChatId}", chatId);
+                //}
+
+                // 2. Chuẩn bị mảng messages và dịch sang tiếng Anh
                 var messages = new List<object>();
-
-                // Thêm lịch sử (nếu có)
-                foreach (var history in chatHistory.OrderBy(ch => ch.Sentat)) // Sắp xếp lại theo thứ tự thời gian
+                foreach (var history in chatHistory.OrderBy(ch => ch.Sentat))
                 {
-                    messages.Add(new { role = "user", content = history.Message });
+                    var userMessageEn = await translateService.DetectAndTranslateToEnglishAsync(history.Message);
+                    messages.Add(new { role = "user", content = userMessageEn });
                     if (!string.IsNullOrEmpty(history.Response))
-                        messages.Add(new { role = "assistant", content = history.Response });
+                        messages.Add(new { role = "assistant", content = history.Response }); // Response đã là tiếng Anh
                 }
 
-                // Thêm câu hỏi hiện tại từ người dùng
-                messages.Add(new { role = "user", content = message });
+                // Dịch câu hỏi hiện tại sang tiếng Anh
+                var currentMessageEn = await translateService.DetectAndTranslateToEnglishAsync(message);
+                messages.Add(new { role = "user", content = currentMessageEn });
 
                 // 3. Chuẩn bị JSON payload
                 var requestPayload = new
                 {
                     model = "bbo",
                     messages = messages,
-                    temperature = 1,
+                    temperature = 0.7,
                     max_tokens = -1,
                     stream = false
                 };
@@ -659,16 +662,20 @@ namespace ChatBot.API.Controllers
                 // 5. Xử lý phản hồi từ LM Studio
                 var responseJson = await response.Content.ReadAsStringAsync();
                 var responseData = JsonSerializer.Deserialize<JsonElement>(responseJson);
-                var aiResponse = responseData.GetProperty("choices")[0]
-                                            .GetProperty("message")
-                                            .GetProperty("content")
-                                            .GetString();
+                var aiResponseEn = responseData.GetProperty("choices")[0]
+                                              .GetProperty("message")
+                                              .GetProperty("content")
+                                              .GetString();
 
-                // 6. Lưu lịch sử trò chuyện mới
-                await CreateChatHistoryAsync(chatId, message, aiResponse, (decimal)stopwatch.Elapsed.TotalSeconds, cancellationToken);
+                // 6. Dịch phản hồi sang tiếng Việt
+                var aiResponseVi = await translateService.TranslateToVietnameseAsync(aiResponseEn ?? "Thank you");
 
-                _logger.LogInformation("Received response from LM Studio for chat {ChatId}: {Response}", chatId, aiResponse);
-                return aiResponse ?? "Thank you";
+                // 7. Lưu lịch sử (giữ message gốc, response là tiếng Anh)
+                await CreateChatHistoryAsync(chatId, message, aiResponseEn, (decimal)stopwatch.Elapsed.TotalSeconds, cancellationToken);
+
+                _logger.LogInformation("Received response from LM Studio for chat {ChatId}: {ResponseEn} -> Translated to {ResponseVi}",
+                    chatId, aiResponseEn, aiResponseVi);
+                return aiResponseVi;
             }
             catch (Exception ex)
             {

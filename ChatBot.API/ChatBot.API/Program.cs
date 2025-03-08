@@ -6,6 +6,8 @@ using ChatBot.API.Handle;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using Telegram.Bot;
+using Google.Apis.Translate.v2;
+using Google.Apis.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,6 +38,10 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWorkReponsitory>();
 // Đăng ký TelegramBotClient từ appsettings.json
 builder.Services.AddSingleton<ITelegramBotClient>(sp =>
     new TelegramBotClient(builder.Configuration["TelegramBot:Token"]));
+
+
+var config = builder.Configuration;
+builder.Services.AddSingleton(new GoogleTranslateService(config));
 
 // Thêm logging
 builder.Logging.AddConsole();
@@ -69,7 +75,7 @@ app.Lifetime.ApplicationStarted.Register(async () =>
         var cancellationTokenSource = new CancellationTokenSource();
 
         // Đặt webhook
-        var webhookUrl = builder.Configuration["Webhook:Url"] ?? "https://b24f-171-227-32-223.ngrok-free.app/api/bot";
+        var webhookUrl = builder.Configuration["Webhook:Url"] ?? "https://008c-2402-800-63b8-8958-a897-937e-dd3b-d7e2.ngrok-free.app/api/bot";
         await botClient.SetWebhookAsync(webhookUrl);
 
         // Cập nhật lệnh bot

@@ -13,7 +13,7 @@ public static class LanguageResource
                                 "💡 - *Filters*: _Recommended Questions_\n" +
                                 "📝 - *Feedback*: _Submit Feedback_\n" +
                                 "🏆 - *Score*: _View Achievements_\n" +
-                                "🌐 - *Language*: _Settings Language_\n\n" +
+                                "🌐 - *Language*: _Settings Language_\n\n" +  
                                 "Or you can use the following commands:\n\n" +
                                 "❓ */h* - _Show available commands_\n" +
                                 "📖 */la* - _Settings language_\n" +
