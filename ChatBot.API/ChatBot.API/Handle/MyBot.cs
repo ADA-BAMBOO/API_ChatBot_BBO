@@ -575,17 +575,17 @@
 //    {
 //        var loadingMessage = await _botClient.SendTextMessageAsync(chatId, "...", cancellationToken: _cancellationTokenSource.Token);
 //        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30)); // Timeout 30 giây
-//        var loadingTask = Task.Run(async () =>
-//        {
-//            string[] dots = new[] { "Typing", "Typing.", "Typing..", "Typing..." };
-//            int index = 0;
-//            while (!cts.Token.IsCancellationRequested)
-//            {
-//                await _botClient.EditMessageTextAsync(chatId, loadingMessage.MessageId, dots[index], cancellationToken: cts.Token);
-//                index = (index + 1) % dots.Length;
-//                await Task.Delay(500, cts.Token);
-//            }
-//        }, cts.Token);
+//var loadingTask = Task.Run(async () =>
+//{
+//    string[] dots = new[] { "Typing", "Typing.", "Typing..", "Typing..." };
+//    int index = 0;
+//    while (!cts.Token.IsCancellationRequested)
+//    {
+//        await _botClient.EditMessageTextAsync(chatId, loadingMessage.MessageId, dots[index], cancellationToken: cts.Token);
+//        index = (index + 1) % dots.Length;
+//        await Task.Delay(500, cts.Token);
+//    }
+//}, cts.Token);
 
 //        try
 //        {

@@ -592,8 +592,14 @@ namespace ChatBot.API.Controllers
         #endregion
 
         #region Gọi API AI Model
+
         private async Task<string> GetResponseFromAI(long chatId, string message, CancellationToken cancellationToken)
         {
+            
+            CancellationTokenSource cts = new CancellationTokenSource(); // Để hủy animation khi cần
+            Message loadingMessage = null; // Lưu tin nhắn loading để chỉnh sửa
+            Task loadingTask = null; // Task chạy animation
+
             try
             {
                 using var scope = _serviceScopeFactory.CreateScope();
@@ -601,41 +607,67 @@ namespace ChatBot.API.Controllers
                 var translateService = scope.ServiceProvider.GetRequiredService<GoogleTranslateService>();
                 var httpClient = new HttpClient();
 
-                // 1. Lấy lịch sử trò chuyện (5 bản ghi gần nhất)
+                // 1. Gửi ChatAction và tin nhắn loading ban đầu
+                await _botClient.SendChatActionAsync(chatId, ChatAction.Typing, cancellationToken: cancellationToken);
+                loadingMessage = await _botClient.SendTextMessageAsync(chatId, "...", cancellationToken: cancellationToken);
+
+                // 2. Bắt đầu hiệu ứng animation loading
+                loadingTask = Task.Run(async () =>
+                {
+                    string[] dots = new[] { ".", "..", "...", "." };
+                    int index = 0;
+                    while (!cts.Token.IsCancellationRequested)
+                    {
+                        try
+                        {
+                            await _botClient.EditMessageTextAsync(chatId, loadingMessage.MessageId, dots[index], cancellationToken: cts.Token);
+                            index = (index + 1) % dots.Length;
+                            await Task.Delay(100, cts.Token); // Cập nhật mỗi 500ms
+                        }
+                        catch (TaskCanceledException)
+                        {
+                            break; // Thoát nếu task bị hủy
+                        }
+                    }
+                }, cts.Token);
+
+                // 3. Lấy thông tin người dùng và thiết lập ngôn ngữ
+                var (user, userLanguage) = await GetUserLanguageAsync(chatId, cancellationToken);
+                if (user == null)
+                {
+                    _logger.LogWarning("No user found for chatId {ChatId}", chatId);
+                    return "Sorry, I couldn't find your user information.";
+                }
+
+                // 4. Lấy lịch sử trò chuyện (5 bản ghi gần nhất)
                 var chatHistory = (await unitOfWork.chatHistoryReponsitory.GetAllAsync())
-                     .Where(ch => ch.Userid == (int)chatId)
-                     .OrderByDescending(ch => ch.Sentat)
-                     .Take(5);
+                    .Where(ch => ch.Userid == (int)chatId)
+                    .OrderByDescending(ch => ch.Sentat)
+                    .Take(5);
 
-                // Log chi tiết từng bản ghi trong chatHistory
-                //if (chatHistory.Any())
-                //{
-                //    foreach (var history in chatHistory)
-                //    {
-                //        _logger.LogInformation("Chat history for chatId {ChatId}: Message = {Message}, Response = {Response}, SentAt = {SentAt}",
-                //            chatId, history.Message, history.Response ?? "No response", history.Sentat);
-                //    }
-                //}
-                //else
-                //{
-                //    _logger.LogInformation("No chat history found for chatId {ChatId}", chatId);
-                //}
-
-                // 2. Chuẩn bị mảng messages và dịch sang tiếng Anh
+                // 5. Chuẩn bị mảng messages cho mô hình (luôn bằng tiếng Anh)
                 var messages = new List<object>();
                 foreach (var history in chatHistory.OrderBy(ch => ch.Sentat))
                 {
                     var userMessageEn = await translateService.DetectAndTranslateToEnglishAsync(history.Message);
                     messages.Add(new { role = "user", content = userMessageEn });
                     if (!string.IsNullOrEmpty(history.Response))
-                        messages.Add(new { role = "assistant", content = history.Response }); // Response đã là tiếng Anh
+                        messages.Add(new { role = "assistant", content = history.Response });
                 }
 
-                // Dịch câu hỏi hiện tại sang tiếng Anh
-                var currentMessageEn = await translateService.DetectAndTranslateToEnglishAsync(message);
+                // 6. Xử lý tin nhắn hiện tại dựa trên thiết lập ngôn ngữ
+                string currentMessageEn;
+                if (userLanguage == "vi")
+                {
+                    currentMessageEn = await translateService.DetectAndTranslateToEnglishAsync(message);
+                }
+                else // userLanguage == "en"
+                {
+                    currentMessageEn = message;
+                }
                 messages.Add(new { role = "user", content = currentMessageEn });
 
-                // 3. Chuẩn bị JSON payload
+                // 7. Chuẩn bị JSON payload
                 var requestPayload = new
                 {
                     model = "bbo",
@@ -648,7 +680,7 @@ namespace ChatBot.API.Controllers
                 var jsonPayload = JsonSerializer.Serialize(requestPayload);
                 var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
-                // 4. Gửi yêu cầu đến LM Studio
+                // 8. Gửi yêu cầu đến LM Studio
                 var stopwatch = Stopwatch.StartNew();
                 var response = await httpClient.PostAsync("http://aitreviet2.duckdns.org:1222/v1/chat/completions", content, cancellationToken);
                 stopwatch.Stop();
@@ -659,7 +691,7 @@ namespace ChatBot.API.Controllers
                     return "Sorry, I couldn't process your request right now.";
                 }
 
-                // 5. Xử lý phản hồi từ LM Studio
+                // 9. Xử lý phản hồi từ LM Studio
                 var responseJson = await response.Content.ReadAsStringAsync();
                 var responseData = JsonSerializer.Deserialize<JsonElement>(responseJson);
                 var aiResponseEn = responseData.GetProperty("choices")[0]
@@ -667,36 +699,56 @@ namespace ChatBot.API.Controllers
                                               .GetProperty("content")
                                               .GetString();
 
-                // 6. Dịch phản hồi sang tiếng Việt
-                var aiResponseVi = await translateService.TranslateToVietnameseAsync(aiResponseEn ?? "Thank you");
+                // 10. Chuẩn bị phản hồi cho người dùng dựa trên thiết lập ngôn ngữ
+                string finalResponse;
+                if (userLanguage == "vi")
+                {
+                    finalResponse = await translateService.TranslateToVietnameseAsync(aiResponseEn ?? "Thank you");
+                }
+                else // userLanguage == "en"
+                {
+                    finalResponse = aiResponseEn ?? "Thank you";
+                }
 
-                // 7. Lưu lịch sử (giữ message gốc, response là tiếng Anh)
+                // 11. Lưu lịch sử
                 await CreateChatHistoryAsync(chatId, message, aiResponseEn, (decimal)stopwatch.Elapsed.TotalSeconds, cancellationToken);
 
-                _logger.LogInformation("Received response from LM Studio for chat {ChatId}: {ResponseEn} -> Translated to {ResponseVi}",
-                    chatId, aiResponseEn, aiResponseVi);
-                return aiResponseVi;
+                // 12. Dừng animation và xóa tin nhắn loading
+                cts.Cancel();
+                await Task.WhenAny(loadingTask); // Chờ animation dừng
+                await _botClient.DeleteMessageAsync(chatId, loadingMessage.MessageId, cancellationToken: cancellationToken);
+
+                _logger.LogInformation("Received response from LM Studio for chat {ChatId}: {ResponseEn} -> Final response: {FinalResponse}",
+                    chatId, aiResponseEn, finalResponse);
+                return finalResponse;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error calling LM Studio for chat {ChatId}", chatId);
+                if (loadingMessage != null)
+                {
+                    cts.Cancel();
+                    await Task.WhenAny(loadingTask);
+                    await _botClient.DeleteMessageAsync(chatId, loadingMessage.MessageId, cancellationToken: cancellationToken);
+                }
                 return "Sorry, an error occurred while processing your request.";
             }
+            
         }
-
         private async Task CreateChatHistoryAsync(long telegramId, string message, string? aiResponse, decimal? responseTime, CancellationToken cancellationToken)
         {
             try
             {
                 using var scope = _serviceScopeFactory.CreateScope();
                 var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+                var (user, userLanguage) = await GetUserLanguageAsync(telegramId, cancellationToken);
                 var chatHistory = new BboChathistory
                 {
                     Userid = (int)telegramId,
                     Message = message,
                     Response = aiResponse,
                     Sentat = DateTime.Now,
-                    LanguageCode = "en",
+                    LanguageCode = userLanguage,
                     Responsetime = responseTime
                 };
 
