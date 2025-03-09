@@ -75,7 +75,7 @@ app.Lifetime.ApplicationStarted.Register(async () =>
         var cancellationTokenSource = new CancellationTokenSource();
 
         // Đặt webhook
-        var webhookUrl = builder.Configuration["Webhook:Url"] ?? "https://008c-2402-800-63b8-8958-a897-937e-dd3b-d7e2.ngrok-free.app/api/bot";
+        var webhookUrl = builder.Configuration["Webhook:Url"] ?? "https://785a-27-75-208-117.ngrok-free.app/api/bot";
         await botClient.SetWebhookAsync(webhookUrl);
 
         // Cập nhật lệnh bot
