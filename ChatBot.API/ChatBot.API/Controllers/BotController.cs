@@ -646,11 +646,19 @@ namespace ChatBot.API.Controllers
                     .Take(5);
 
                 // 5. Chuẩn bị mảng messages cho mô hình (luôn bằng tiếng Anh)
+                //var messages = new List<object>();
+                //foreach (var history in chatHistory.OrderBy(ch => ch.Sentat))
+                //{
+                //    var userMessageEn = await translateService.DetectAndTranslateToEnglishAsync(history.Message);
+                //    messages.Add(new { role = "user", content = userMessageEn });
+                //    if (!string.IsNullOrEmpty(history.Response))
+                //        messages.Add(new { role = "assistant", content = history.Response });
+                //}
+                // 5. Chuẩn bị mảng messages cho mô hình (luôn bằng tiếng Anh)
                 var messages = new List<object>();
                 foreach (var history in chatHistory.OrderBy(ch => ch.Sentat))
                 {
-                    var userMessageEn = await translateService.DetectAndTranslateToEnglishAsync(history.Message);
-                    messages.Add(new { role = "user", content = userMessageEn });
+                    messages.Add(new { role = "user", content = history.Message });
                     if (!string.IsNullOrEmpty(history.Response))
                         messages.Add(new { role = "assistant", content = history.Response });
                 }
@@ -711,7 +719,8 @@ namespace ChatBot.API.Controllers
                 }
 
                 // 11. Lưu lịch sử
-                await CreateChatHistoryAsync(chatId, message, aiResponseEn, (decimal)stopwatch.Elapsed.TotalSeconds, cancellationToken);
+                await CreateChatHistoryAsync(chatId, currentMessageEn, aiResponseEn, (decimal)stopwatch.Elapsed.TotalSeconds, cancellationToken);
+                // await CreateChatHistoryAsync(chatId, message, aiResponseEn, (decimal)stopwatch.Elapsed.TotalSeconds, cancellationToken);
 
                 // 12. Dừng animation và xóa tin nhắn loading
                 cts.Cancel();
