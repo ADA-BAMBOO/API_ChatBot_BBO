@@ -166,3 +166,5 @@ D:\NguyenHoangKhai_Learn\API_ChatBot_BBO\ChatBot.API\ChatBot.API\bin\Debug\net8.
 D:\NguyenHoangKhai_Learn\API_ChatBot_BBO\ChatBot.API\ChatBot.API\bin\Debug\net8.0\Microsoft.Data.Analysis.dll
 D:\NguyenHoangKhai_Learn\API_ChatBot_BBO\ChatBot.API\ChatBot.API\bin\Debug\net8.0\Microsoft.ML.DataView.dll
 D:\NguyenHoangKhai_Learn\API_ChatBot_BBO\ChatBot.API\ChatBot.API\bin\Debug\net8.0\System.Numerics.Tensors.dll
+D:\NguyenHoangKhai_Learn\API_ChatBot_BBO\ChatBot.API\ChatBot.API\bin\Debug\net8.0\Polly.dll
+D:\NguyenHoangKhai_Learn\API_ChatBot_BBO\ChatBot.API\ChatBot.API\bin\Debug\net8.0\Polly.Core.dll

@@ -8,6 +8,9 @@ using Newtonsoft.Json;
 using Telegram.Bot;
 using Google.Apis.Translate.v2;
 using Google.Apis.Services;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.DependencyInjection;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +25,8 @@ builder.Services
     });
 
 builder.Services.AddControllers();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient();
 
 // Cấu hình Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
@@ -52,6 +57,20 @@ builder.Services.AddScoped<BotController>();
 // Đăng ký BotCommandHandler
 builder.Services.AddScoped<BotCommandHandler>();
 
+
+// Configure rate limiting
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("fixed", opt =>
+    {
+        opt.Window = TimeSpan.FromSeconds(1); // 1-second window
+        opt.PermitLimit = 20; // Allow 20 requests per second
+        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        opt.QueueLimit = 100; // Optional: Limit queue size
+    });
+});
+
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -75,7 +94,7 @@ app.Lifetime.ApplicationStarted.Register(async () =>
         var cancellationTokenSource = new CancellationTokenSource();
 
         // Đặt webhook
-        var webhookUrl = builder.Configuration["Webhook:Url"] ?? "https://3e13-27-75-208-117.ngrok-free.app/api/bot";
+        var webhookUrl = builder.Configuration["Webhook:Url"] ?? "https://d3e9-27-75-208-117.ngrok-free.app/api/bot";
         await botClient.SetWebhookAsync(webhookUrl);
 
         // Cập nhật lệnh bot
