@@ -4,28 +4,28 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ChatBot.API.Reponsitory;
 
-public class UserReponsitory : GenericReponsitory<BboUser>, IUserReponsitory
+public class CreditReponsitory : GenericReponsitory<BboCredit>, ICreditReponsitory
 {
-    public UserReponsitory(YourDbContext _dbContext) : base(_dbContext)
+    public CreditReponsitory(YourDbContext _dbContext) : base(_dbContext)
     {
     }
 
-    public override Task<List<BboUser>> GetAllAsync()
+    public override Task<List<BboCredit>> GetAllAsync()
     {
         return DbSet.OrderByDescending(x => x.Id).ToListAsync();
     }
 
-    public override async Task<BboUser> GetAsync(int id)
+    public override async Task<BboCredit> GetAsync(int id)
     {
-        return await DbSet.FirstOrDefaultAsync(x => x.Telegramid == id);
+        return await DbSet.FirstOrDefaultAsync(x => x.Id == id);
     }
 
-    public override async Task<BboUser> GetFirstOrDefaultAsync(int telegramId)
+    public override async Task<BboCredit> GetFirstOrDefaultAsync(int telegramId)
     {
-        return await DbSet.FirstOrDefaultAsync(x => x.Telegramid == telegramId);
+        return await DbSet.FirstOrDefaultAsync(x => x.Id == telegramId);
     }
 
-    public override async Task<bool> AddEntity(BboUser entity)
+    public override async Task<bool> AddEntity(BboCredit entity)
     {
         try
         {
@@ -38,15 +38,13 @@ public class UserReponsitory : GenericReponsitory<BboUser>, IUserReponsitory
         }
     }
 
-    public override async Task<bool> UpdateEntity(BboUser entity)
+    public override async Task<bool> UpdateEntity(BboCredit entity)
     {
         try
         {
             var result = await DbSet.FirstOrDefaultAsync(x => x.Id == entity.Id);
             if (result != null)
             {
-
-                result.Lastactive = DateTime.Now;
                 return true;
 
             }
