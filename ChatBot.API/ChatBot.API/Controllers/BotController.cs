@@ -93,97 +93,109 @@ namespace ChatBot.API.Controllers
                         using (var scope = _serviceScopeFactory.CreateScope())
                         {
                             var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+                            var userLanguage = (await unitOfWork.userReponsitory.GetFirstOrDefaultAsync((int)chatId))?.Language ?? "en";
 
-                            switch (messageText.Split(' ')[0])
+                            // Kiểm tra nếu messageText bắt đầu bằng "/" (lệnh)
+                            if (messageText.StartsWith("/"))
                             {
-                                case "/start":
-                                    var existingUser = await unitOfWork.userReponsitory.GetFirstOrDefaultAsync((int)chatId);
-                                    string userLanguage = existingUser?.Language ?? "en";
+                                var command = messageText.Split(' ')[0].ToLower();
+                                switch (command)
+                                {
+                                    case "/start":
+                                        var existingUser = await unitOfWork.userReponsitory.GetFirstOrDefaultAsync((int)chatId);
+                                        userLanguage = existingUser?.Language ?? "en";
 
-                                    if (existingUser == null)
-                                    {
-                                        var newUser = new BboUser
+                                        if (existingUser == null)
                                         {
-                                            Telegramid = (int)chatId,
-                                            Username = update.Message.From?.Username ?? "User",
-                                            Joindate = DateTime.Now,
-                                            Lastactive = DateTime.Now,
-                                            Isactive = true,
-                                            Language = "en",
-                                            Roleid = 3
-                                        };
+                                            var newUser = new BboUser
+                                            {
+                                                Telegramid = (int)chatId,
+                                                Username = update.Message.From?.Username ?? "User",
+                                                Joindate = DateTime.Now,
+                                                Lastactive = DateTime.Now,
+                                                Isactive = true,
+                                                Language = "en",
+                                                Roleid = 3
+                                            };
 
-                                        await unitOfWork.userReponsitory.AddEntity(newUser);
-                                        await unitOfWork.CompleteAsync();
-                                        _logger.LogInformation("Created new user with Telegram ID: {TelegramId}", chatId);
-                                    }
-
-                                    var inlineKeyboard = new InlineKeyboardMarkup(new[]
-                                    {
-                                        new[]
-                                        {
-                                            InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "SettingsButton"), "settings"),
-                                            InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "FilterButton"), "filter")
-                                        },
-                                        new[]
-                                        {
-                                            InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "FeedbackButton"), "feedback"),
-                                            InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "PointButton"), "point")
-                                        },
-                                        new[]
-                                        {
-                                            InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "LanguageButton"), "languages")
+                                            await unitOfWork.userReponsitory.AddEntity(newUser);
+                                            await unitOfWork.CompleteAsync();
+                                            _logger.LogInformation("Created new user with Telegram ID: {TelegramId}", chatId);
                                         }
-                                    });
 
-                                    string username = update.Message.From?.Username ?? "User";
-                                    var welcomeMessage = LanguageResource.GetTranslation(userLanguage, "WelcomeMessage", username);
-
-                                    await _botClient.SendTextMessageAsync(chatId, welcomeMessage, replyMarkup: inlineKeyboard,
-                                        cancellationToken: cancellationToken, parseMode: ParseMode.Markdown);
-                                    break;
-
-                                case "/h":
-                                    var helpMessage = await GetHelpMessage(chatId, cancellationToken);
-                                    var helpKeyboard = await GetHelpInlineKeyboard(chatId, cancellationToken);
-                                    await _botClient.SendTextMessageAsync(chatId, helpMessage, replyMarkup: helpKeyboard,
-                                        cancellationToken: cancellationToken, parseMode: ParseMode.Markdown);
-                                    break;
-
-                                case "/s":
-                                    responseMessage = await GetSettingsMessage(chatId, cancellationToken);
-                                    break;
-
-                                case "/find":
-                                    responseMessage = await HandleFilterCommand(chatId, cancellationToken);
-                                    break;
-
-                                case "/p":
-                                    responseMessage = "🏆 Your Achievement Points";
-                                    break;
-
-                                case "/f":
-                                    string feedback = string.Join(" ", messageText.Split(' ').Skip(1));
-                                    userLanguage = (await unitOfWork.userReponsitory.GetFirstOrDefaultAsync((int)chatId))?.Language ?? "en";
-                                    if (string.IsNullOrWhiteSpace(feedback))
+                                        var inlineKeyboard = new InlineKeyboardMarkup(new[]
+                                        {
+                                    new[]
                                     {
-                                        responseMessage = LanguageResource.GetTranslation(userLanguage, "FeedbackPrompt");
-                                    }
-                                    else
+                                        InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "SettingsButton"), "settings"),
+                                        InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "FilterButton"), "filter")
+                                    },
+                                    new[]
                                     {
-                                        await SaveFeedback(chatId, 0, feedback, cancellationToken);
-                                        responseMessage = LanguageResource.GetTranslation(userLanguage, "FeedbackThanks");
+                                        InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "FeedbackButton"), "feedback"),
+                                        InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "PointButton"), "point")
+                                    },
+                                    new[]
+                                    {
+                                        InlineKeyboardButton.WithCallbackData(LanguageResource.GetTranslation(userLanguage, "LanguageButton"), "languages")
                                     }
-                                    break;
+                                });
 
-                                case "/la":
-                                    await ShowLanguageOptions(chatId, cancellationToken);
-                                    responseMessage = string.Empty;
-                                    break;
+                                        string username = update.Message.From?.Username ?? "User";
+                                        var welcomeMessage = LanguageResource.GetTranslation(userLanguage, "WelcomeMessage", username);
 
-                                default:
-                                    responseMessage = await GetResponseFromAI(chatId, messageText, cancellationToken);
-                                    break;
+                                        await _botClient.SendTextMessageAsync(chatId, welcomeMessage, replyMarkup: inlineKeyboard,
+                                            cancellationToken: cancellationToken, parseMode: ParseMode.Markdown);
+                                        break;
+
+                                    case "/h":
+                                        var helpMessage = await GetHelpMessage(chatId, cancellationToken);
+                                        var helpKeyboard = await GetHelpInlineKeyboard(chatId, cancellationToken);
+                                        await _botClient.SendTextMessageAsync(chatId, helpMessage, replyMarkup: helpKeyboard,
+                                            cancellationToken: cancellationToken, parseMode: ParseMode.Markdown);
+                                        break;
+
+                                    case "/s":
+                                        responseMessage = await GetSettingsMessage(chatId, cancellationToken);
+                                        break;
+
+                                    case "/find":
+                                        responseMessage = await HandleFilterCommand(chatId, cancellationToken);
+                                        break;
+
+                                    case "/p":
+                                        responseMessage = "🏆 Your Achievement Points";
+                                        break;
+
+                                    case "/f":
+                                        string feedback = string.Join(" ", messageText.Split(' ').Skip(1));
+                                        userLanguage = (await unitOfWork.userReponsitory.GetFirstOrDefaultAsync((int)chatId))?.Language ?? "en";
+                                        if (string.IsNullOrWhiteSpace(feedback))
+                                        {
+                                            responseMessage = LanguageResource.GetTranslation(userLanguage, "FeedbackPrompt");
+                                        }
+                                        else
+                                        {
+                                            await SaveFeedback(chatId, 0, feedback, cancellationToken);
+                                            responseMessage = LanguageResource.GetTranslation(userLanguage, "FeedbackThanks");
+                                        }
+                                        break;
+
+                                    case "/la":
+                                        await ShowLanguageOptions(chatId, cancellationToken);
+                                        responseMessage = string.Empty;
+                                        break;
+
+                                    default:
+                                        // Nếu lệnh không khớp với bất kỳ trường hợp nào, trả về thông báo lỗi
+                                        responseMessage = LanguageResource.GetTranslation(userLanguage, "InvalidCommand");
+                                        break;
+                                }
+                            }
+                            else
+                            {
+                                // Nếu không phải là lệnh (không bắt đầu bằng "/"), xử lý như câu hỏi bình thường
+                                responseMessage = await GetResponseFromAI(chatId, messageText, cancellationToken);
                             }
                         }
 

@@ -9,39 +9,39 @@ public static class LanguageResource
             ["WelcomeMessage"] = "Hi *{0}*, Welcome to *GovernCardanoBot*!\n\n" +
                                 "📖 *GovernCardanoBot* is an intelligent virtual assistant powered by  BBO Model, designed to answer questions related to the Cardano blockchain and its governance activities.\n\n" +
                                 "🌟 *Please select an option:*\n\n" +
-                                "👤 - *Settings*: _Account Settings_\n" +
-                                "💡 - *Filters*: _Recommended Questions_\n" +
-                                "📝 - *Feedback*: _Submit Feedback_\n" +
-                                "🏆 - *Score*: _View Achievements_\n" +
-                                "🌐 - *Language*: _Settings Language_\n\n" +  
+                                "⚙️*Settings*: _Account Settings_\n" +
+                                "💡*Filters*: _Recommended Questions_\n" +
+                                "📝*Feedback*: _Submit Feedback_\n" +
+                                "🏆*Score*: _View Achievements_\n" +
+                                "🌐*Language*: _Settings Language_\n\n" +
                                 "Or you can use the following commands:\n\n" +
-                                "❓ */h* - _Show available commands_\n" +
-                                "📖 */la* - _Settings language_\n" +
-                                "👤 */s* - _Account settings_\n" +
-                                "💡 */find* - _Recommended questions_\n" +
-                                "📝 */f* - _Send feedback_\n" +
-                                "🏆 */p* - _View achievements_\n\n" +
+                                "❓*/h* - _Show available commands_\n" +
+                                "🌐*/la* - _Settings language_\n" +
+                                "⚙️*/s* - _Account settings_\n" +
+                                "💡*/find* - _Recommended questions_\n" +
+                                "📝*/f* - _Send feedback_\n" +
+                                "🏆*/p* - _View achievements_\n\n" +
                                 "You can join our community group at: [Cardano_ECO_VN](https://t.me/Cardano_ECO_VN)",
             ["HelpMessage"] = "🌟 *Please select an option:*\n\n" +
-                              "👤 - *Settings*: _Account Settings_\n" +
-                              "💡 - *Filters*: _Recommended Questions_\n" +
-                              "📝 - *Feedback*: _Submit Feedback_\n" +
-                              "🏆 - *Score*: _View Achievements_\n" +
-                              "🌐 - *Language*: _Settings Language_\n\n" +
+                              "⚙️*Settings*: _Account Settings_\n" +
+                              "💡*Filters*: _Recommended Questions_\n" +
+                              "📝*Feedback*: _Submit Feedback_\n" +
+                              "🏆*Score*: _View Achievements_\n" +
+                              "🌐*Language*: _Settings Language_\n\n" +
                               "Or you can use the following commands:\n\n" +
-                              "❓ */h* - _Show available commands_\n" +
-                              "📖 */la* - _Settings language_\n" +
-                              "👤 */s* - _Account settings_\n" +
-                              "💡 */find* - _Recommended questions_\n" +
-                              "📝 */f* - _Send feedback_\n" +
-                              "🏆 */p* - _View achievements_\n\n" +
+                              "❓*/h* - _Show available commands_\n" +
+                              "🌐*/la* - _Settings language_\n" +
+                              "👤*/s* - _Account settings_\n" +
+                              "💡*/find* - _Recommended questions_\n" +
+                              "📝*/f* - _Send feedback_\n" +
+                              "🏆*/p* - _View achievements_\n\n" +
                               "You can join our community group at: [Cardano_ECO_VN](https://t.me/Cardano_ECO_VN)",
-            ["SettingsButton"] = "👤 Settings",
+            ["SettingsButton"] = "⚙️ Settings",
             ["FilterButton"] = "💡 Filter",
             ["FeedbackButton"] = "📝 Feedback",
             ["PointButton"] = "🏆 Point",
             ["LanguageButton"] = "🌐 Language",
-            ["SettingsMessage"] = "👤*Account Information:*\n\n" +
+            ["SettingsMessage"] = "⚙️*Account Information:*\n\n" +
                                   " - Username: *{0}*\n" +
                                   " - Telegram code: *{1}*\n" +
                                   " - Join date: *{2}*\n" +
@@ -73,7 +73,8 @@ public static class LanguageResource
             ["Command_Find"] = "Recommended questions",
             ["Command_F"] = "Send feedback",
             ["Command_P"] = "View achievements",
-            ["Command_La"] = "Settings language"
+            ["Command_La"] = "Settings language",
+            ["InvalidCommand"] = "Sorry, the command you entered is not recognized. Type /h for help.",
 
 
         },
@@ -82,39 +83,39 @@ public static class LanguageResource
             ["WelcomeMessage"] = "Xin chào *{0}*, Chào mừng bạn đến với *GovernCardanoBot*!\n\n" +
                                 "📖 *GovernCardanoBot* là trợ lý ảo thông minh được hỗ trợ bởi BBO Model, được thiết kế để trả lời các câu hỏi liên quan đến blockchain Cardano và các hoạt động quản trị của nó.\n\n" +
                                 "🌟 *Vui lòng chọn một tùy chọn:*\n\n" +
-                                "👤 - *Cài đặt*: _Thiết lập tài khoản_\n" +
-                                "💡 - *Bộ lọc*: _Câu hỏi gợi ý_\n" +
-                                "📝 - *Phản hồi*: _Gửi đánh giá_\n" +
-                                "🏆 - *Điểm*: _Xem thành tích_\n" +
-                                "🌐 - *Ngôn ngữ*: _Thiết lập ngôn ngữ_\n\n" +
+                                "⚙️*Cài đặt*: _Thiết lập tài khoản_\n" +
+                                "💡*Bộ lọc*: _Câu hỏi gợi ý_\n" +
+                                "📝*Phản hồi*: _Gửi đánh giá_\n" +
+                                "🏆*Điểm*: _Xem thành tích_\n" +
+                                "🌐*Ngôn ngữ*: _Thiết lập ngôn ngữ_\n\n" +
                                 "Hoặc bạn có thể sử dụng các lệnh sau:\n\n" +
-                                "❓ */h* - _Hiển thị các lệnh có sẵn_\n" +
-                                "📖 */la* - _Thiết lập ngôn ngữ_\n" +
-                                "👤 */s* - _Thiếp lập tài khoản_\n" +
-                                "💡 */find* - _Câu hỏi gợi ý_\n" +
-                                "📝 */f* - _Gửi đánh giá_\n" +
-                                "🏆 */p* - _Xem thành tích_\n\n" +
+                                "❓*/h* - _Hiển thị các lệnh có sẵn_\n" +
+                                "🌐*/la* - _Thiết lập ngôn ngữ_\n" +
+                                "⚙️*/s* - _Thiếp lập tài khoản_\n" +
+                                "💡*/find* - _Câu hỏi gợi ý_\n" +
+                                "📝*/f* - _Gửi đánh giá_\n" +
+                                "🏆*/p* - _Xem thành tích_\n\n" +
                                 "Bạn có thể tham gia nhóm cộng đồng tại: [Cardano_ECO_VN](https://t.me/Cardano_ECO_VN)",
             ["HelpMessage"] = "🌟 *Vui lòng chọn một tùy chọn:*\n\n" +
-                              "👤 - *Cài đặt*: _Thiết lập tài khoản_\n" +
-                              "💡 - *Bộ lọc*: _Câu hỏi gợi ý_\n" +
-                              "📝 - *Phản hồi*: _Gửi đánh giá_\n" +
-                              "🏆 - *Điểm*: _Xem thành tích_\n" +
-                              "🌐 - *Ngôn ngữ*: _Thiết lập ngôn ngữ_\n\n" +
+                              "⚙️*Cài đặt*: _Thiết lập tài khoản_\n" +
+                              "💡*Bộ lọc*: _Câu hỏi gợi ý_\n" +
+                              "📝*Phản hồi*: _Gửi đánh giá_\n" +
+                              "🏆*Điểm*: _Xem thành tích_\n" +
+                              "🌐*Ngôn ngữ*: _Thiết lập ngôn ngữ_\n\n" +
                               "Hoặc bạn có thể sử dụng các lệnh sau:\n\n" +
-                              "❓ */h* - _Hiển thị các lệnh có sẵn_\n" +
-                              "📖 */la* - _Thiết lập ngôn ngữ_\n" +
-                              "👤 */s* - _Thiếp lập tài khoản_\n" +
-                              "💡 */find* - _Câu hỏi gợi ý_\n" +
-                              "📝 */f* - _Gửi đánh giá_\n" +
-                              "🏆 */p* - _Xem thành tích_\n\n" +
+                              "❓*/h* - _Hiển thị các lệnh có sẵn_\n" +
+                              "🌐*/la* - _Thiết lập ngôn ngữ_\n" +
+                              "⚙️*/s* - _Thiếp lập tài khoản_\n" +
+                              "💡*/find* - _Câu hỏi gợi ý_\n" +
+                              "📝*/f* - _Gửi đánh giá_\n" +
+                              "🏆*/p* - _Xem thành tích_\n\n" +
                               "Bạn có thể tham gia nhóm cộng đồng tại: [Cardano_ECO_VN](https://t.me/Cardano_ECO_VN)",
-            ["SettingsButton"] = "👤 Cài đặt",
+            ["SettingsButton"] = "⚙️ Cài đặt",
             ["FilterButton"] = "💡 Bộ lọc",
             ["FeedbackButton"] = "📝 Phản hồi",
             ["PointButton"] = "🏆 Điểm",
             ["LanguageButton"] = "🌐 Ngôn ngữ",
-            ["SettingsMessage"] = "👤*Thông tin tài khoản:*\n\n" +
+            ["SettingsMessage"] = "⚙️*Thông tin tài khoản:*\n\n" +
                                   " - Tên người dùng: *{0}*\n" +
                                   " - Mã Telegram: *{1}*\n" +
                                   " - Ngày tham gia: *{2}*\n" +
@@ -139,8 +140,9 @@ public static class LanguageResource
             ["OnchainIdError"] = "Lỗi khi cập nhật Onchain ID. Vui lòng thử lại.",
             ["SelectNewRole"] = "💻 Vui lòng chọn vai trò bạn trên Onchain:",
             ["RoleSuccess"] = "🐳 *Cập nhật vai trò thành công.*\n 🐳Sử dụng lệnh */s* để xem thông tin thay đổi của bạn!",
+            ["InvalidCommand"] = "Xin lỗi, lệnh bạn nhập không được nhận diện. Gõ /h để được trợ giúp.",
 
-          
+
         }
     };
 
